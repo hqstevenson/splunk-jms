@@ -146,4 +146,17 @@
         </plugins>
     </build>
 
+    <distributionManagement>
+        <repository>
+            <id>libs-ucla-dev</id>
+            <name>UCLA Development JARs</name>
+            <url>http://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-local</url>
+        </repository>
+        <snapshotRepository>
+            <id>libs-ucla-snapshot</id>
+            <name>UCLA Development SNAPSHOT JARs</name>
+            <url>http://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-snapshot</url>
+        </snapshotRepository>
+    </distributionManagement>
+
 </project>
