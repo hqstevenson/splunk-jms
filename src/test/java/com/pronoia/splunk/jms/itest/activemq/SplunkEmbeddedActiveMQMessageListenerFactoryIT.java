@@ -17,13 +17,12 @@
 
 package com.pronoia.splunk.jms.itest.activemq;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert.assertMessageCount;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
-import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
 import com.pronoia.splunk.jms.activemq.SplunkActiveMQMessageListener;
+import com.pronoia.splunk.jms.activemq.SplunkEmbeddedActiveMQMessageListenerFactory;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,24 +34,27 @@ import org.slf4j.LoggerFactory;
 /**
  * Tests for the  class.
  */
-public class SplunkActiveMQMessageListenerIT {
-  static final String DESTINATION_NAME = "queue://audit.in";
+public class SplunkEmbeddedActiveMQMessageListenerFactoryIT {
+  static final String DESTINATION_NAME = "audit.in";
 
-  @Rule
-  public EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
+  public EmbeddedActiveMQBroker broker;
 
   Logger log = LoggerFactory.getLogger(this.getClass());
 
   SimpleEventCollectorClient httpecClient = new SimpleEventCollectorClient();
 
-  SplunkActiveMQMessageListener instance;
+  SplunkEmbeddedActiveMQMessageListenerFactory instance;
 
   @Before
   public void setUp() throws Exception {
+    broker = new EmbeddedActiveMQBroker();
+    broker.getBrokerService().setUseJmx(true);
+    broker.start();
+    broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE");
+
     String brokerURL = String.format("vm://%s?create=false&waitForStart=5000", broker.getBrokerName());
 
-    instance = new SplunkActiveMQMessageListener();
-    instance.setBrokerURL(brokerURL);
+    instance = new SplunkEmbeddedActiveMQMessageListenerFactory();
     instance.setUserName("admin");
     instance.setPassword("admin");
 
@@ -76,10 +78,7 @@ public class SplunkActiveMQMessageListenerIT {
     httpecClient.setAuthorizationToken("902ADE3D-2895-47F0-ABE6-4981DB2ABE9C");
     httpecClient.disableCertificateValidation();
 
-    log.info("Starting message listener");
     instance.setSplunkClient(httpecClient);
-
-    instance.start();
   }
 
   @After
@@ -95,9 +94,11 @@ public class SplunkActiveMQMessageListenerIT {
    */
   @Test
   public void testOnMessage() throws Exception {
-    broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE");
+    Thread.sleep(500);
+    instance.start();
 
-    Thread.sleep(5000);
+    Thread.sleep(15000);
+    assertMessageCount(broker, DESTINATION_NAME, 0);
   }
 
 }

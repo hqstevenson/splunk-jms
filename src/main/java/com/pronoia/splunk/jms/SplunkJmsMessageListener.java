@@ -38,9 +38,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Receives JMS Messages from an ActiveMQ broker in the same JVM and delivers them to Splunk using the HTTP Event
  * Collector.
- *
- * <p>If the broker name isn't configured, the broker is located using JMX - the first broker returned by the JMX
- * queury will be used.
  */
 public class SplunkJmsMessageListener implements MessageListener, ExceptionListener {
   Logger log = LoggerFactory.getLogger(this.getClass());
@@ -55,7 +52,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
 
   String destinationName;
 
-  boolean useQueue = true;
+  boolean useTopic = false;
   boolean running = false;
 
   EventBuilder<Message> messageEventBuilder;
@@ -85,20 +82,20 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
     this.destinationName = destinationName;
   }
 
-  public boolean isUseQueue() {
-    return useQueue;
+  public boolean isUseTopic() {
+    return useTopic;
   }
 
-  public void setUseQueue(boolean useQueue) {
-    this.useQueue = useQueue;
+  public void setUseTopic(boolean useTopic) {
+    this.useTopic = useTopic;
   }
 
   public void useQueue() {
-    this.setUseQueue(true);
+    this.setUseTopic(false);
   }
 
-  public void useFalse() {
-    this.setUseQueue(false);
+  public void useTopic() {
+    this.setUseTopic(true);
   }
 
   public boolean hasSplunkClient() {
@@ -154,39 +151,85 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
    * TODO:  Fixup error handling
    */
   public void start() {
+    log.info("Starting MessageListener for {}", destinationName);
     verifyConfiguration();
 
     try {
-      // This will throw a JMSException with a ConnectException cause when the connection cannot be made to a TCP URL
+      log.trace("Creating JMS Connection for {}", destinationName);
       connection = connectionFactory.createConnection();
-      connection.setExceptionListener(this);
     } catch (JMSException jmsEx) {
-      String logMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
-      throw new IllegalStateException(logMessage, jmsEx);
+      String errorMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, jmsEx);
+      throw new IllegalStateException(errorMessage, jmsEx);
+    } catch (Throwable unexpectedEx) {
+      String errorMessage = String.format("Unexpected exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, unexpectedEx);
+      throw new IllegalStateException(errorMessage, unexpectedEx);
+    }
+
+    for (int i=0; i<5; ++i) {
+      try {
+        // This will throw a JMSSecurityException when the user or password is invalid
+        log.trace("Creating JMS Session for {} - attempt {}", destinationName, i);
+        session = connection.createSession(true, -1);
+        if (session != null) {
+          log.info("Connected on attempt {}", i);
+          break;
+        } else {
+          log.warn("Connection failed - sleeping before reconnect on attempt {}", i);
+          Thread.sleep(5000);
+        }
+      } catch (JMSException jmsEx) {
+        String errorMessage = String.format("Exception encountered creating JMS Session {destinationName name ='%s'} - attempt %d", destinationName, i);
+        log.error(errorMessage, jmsEx);
+        log.warn("Connection failed - sleeping before reconnect on attempt {}", i);
+        try {
+          Thread.sleep(15000);
+        } catch (InterruptedException interruptedEx) {
+          log.info("Sleep for reconnect interrupted", interruptedEx);
+        }
+        // throw new IllegalStateException(errorMessage, jmsEx);
+      } catch (Throwable unexpectedEx) {
+        String errorMessage = String.format("Unexpected exception encountered creating JMS Session {destinationName name ='%s'} - attempt %d", destinationName, i);
+        log.error(errorMessage, unexpectedEx);
+        // throw new IllegalStateException(errorMessage, unexpectedEx);
+      }
     }
 
     try {
-      // This will throw a JMSSecurityException when the user or password is invalid
-      session = connection.createSession(true, Session.SESSION_TRANSACTED);
-    } catch (JMSException jmsEx) {
-      String logMessage = String.format("Exception encountered creating JMS Session {destinationName name ='%s'}", destinationName);
-      throw new IllegalStateException(logMessage, jmsEx);
-    }
-
-    try {
+      log.trace("Creating JMS Consumer for {}", destinationName);
       consumer = session.createConsumer(createDestination());
       consumer.setMessageListener(this);
     } catch (JMSException jmsEx) {
-      String logMessage = String.format("Exception encountered creating JMS MessageConsumer {destinationName name ='%s'}", destinationName);
-      throw new IllegalStateException(logMessage, jmsEx);
+      String errorMessage = String.format("Exception encountered creating JMS MessageConsumer {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, jmsEx);
+      throw new IllegalStateException(errorMessage, jmsEx);
     }
 
     try {
+      // This will throw a JMSException with a ConnectException cause when the connection cannot be made to a TCP URL
+      log.trace("Registering the exception listener for {}", destinationName);
+      connection.setExceptionListener(this);
+    } catch (JMSException jmsEx) {
+      String errorMessage = String.format("Exception encountered registering the exception listener {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, jmsEx);
+      throw new IllegalStateException(errorMessage, jmsEx);
+    } catch (Throwable unexpectedEx) {
+      String errorMessage = String.format("Exception encountered registering the exception listener  {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, unexpectedEx);
+      throw new IllegalStateException(errorMessage, unexpectedEx);
+    }
+
+    try {
+      log.trace("Starting JMS connection for {}", destinationName);
       connection.start();
     } catch (JMSException jmsEx) {
-      String logMessage = String.format("Exception encountered starting JMS Connection {destinationName name ='%s'}", destinationName);
-      throw new IllegalStateException(logMessage, jmsEx);
+      String errorMessage = String.format("Exception encountered starting JMS Connection {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, jmsEx);
+      throw new IllegalStateException(errorMessage, jmsEx);
     }
+
+    log.info("MessageListener for {} started", destinationName);
 
     running = true;
   }
@@ -195,6 +238,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
    * Stop the JMS QueueReceiver.
    */
   public void stop() {
+    log.info("Stopping MessageListener for {}", destinationName);
     this.cleanup(true);
   }
 
@@ -258,6 +302,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
   @Override
   public void onMessage(Message message) {
     // TODO:  The error handling needs to be worked over - basic logging probably isn't enough
+    log.debug("onMessage called");
     if (message != null) {
       if (log.isDebugEnabled()) {
         try {
@@ -273,7 +318,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
       try {
         splunkClient.sendEvent(messageEventBuilder.build());
         try {
-          message.acknowledge();
+          // message.acknowledge();
           session.commit();
         } catch (JMSException jmsAcknowledgeEx) {
           try {
@@ -304,6 +349,6 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
   }
 
   protected Destination createDestination() throws JMSException {
-    return useQueue ? session.createQueue(destinationName) : session.createTopic(destinationName);
+    return useTopic ? session.createTopic(destinationName) : session.createQueue(destinationName);
   }
 }

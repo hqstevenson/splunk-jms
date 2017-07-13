@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jms</artifactId>
     <packaging>bundle</packaging>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.3</version>
 
     <name>Splunk ActiveMQ Support Classes</name>
 
@@ -87,6 +87,20 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Needed for integration tests -->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.4.6</version>
+            <scope>test</scope>
+        </dependency>
+
 
     </dependencies>
 
@@ -145,18 +159,5 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>libs-ucla-dev</id>
-            <name>UCLA Development JARs</name>
-            <url>http://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-local</url>
-        </repository>
-        <snapshotRepository>
-            <id>libs-ucla-snapshot</id>
-            <name>UCLA Development SNAPSHOT JARs</name>
-            <url>http://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-snapshot</url>
-        </snapshotRepository>
-    </distributionManagement>
 
 </project>

@@ -1,11 +1,11 @@
 package com.pronoia.splunk.jms.activemq;
 
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
+import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
 
 import javax.jms.Destination;
 import javax.jms.JMSException;
 
-import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQDestination;
 
@@ -13,6 +13,10 @@ public class SplunkActiveMQMessageListener extends SplunkJmsMessageListener {
   String brokerURL;
   String userName;
   String password;
+
+  String splunkIndex;
+  String splunkSource;
+  String splunkSourcetype;
 
   public boolean hasBrokerURL() {
     return brokerURL != null && !brokerURL.isEmpty();
@@ -50,6 +54,42 @@ public class SplunkActiveMQMessageListener extends SplunkJmsMessageListener {
     this.password = password;
   }
 
+  public boolean hasSplunkIndex() {
+    return splunkIndex != null && !splunkIndex.isEmpty();
+  }
+
+  public String getSplunkIndex() {
+    return splunkIndex;
+  }
+
+  public void setSplunkIndex(String splunkIndex) {
+    this.splunkIndex = splunkIndex;
+  }
+
+  public boolean hasSplunkSource() {
+    return splunkSource != null && !splunkSource.isEmpty();
+  }
+
+  public String getSplunkSource() {
+    return splunkSource;
+  }
+
+  public void setSplunkSource(String splunkSource) {
+    this.splunkSource = splunkSource;
+  }
+
+  public boolean hasSplunkSourcetype() {
+    return splunkSourcetype != null && !splunkSourcetype.isEmpty();
+  }
+
+  public String getSplunkSourcetype() {
+    return splunkSourcetype;
+  }
+
+  public void setSplunkSourcetype(String splunkSourcetype) {
+    this.splunkSourcetype = splunkSourcetype;
+  }
+
   @Override
   public void verifyConfiguration() {
     if (!hasBrokerURL()) {
@@ -72,7 +112,26 @@ public class SplunkActiveMQMessageListener extends SplunkJmsMessageListener {
   }
 
   @Override
+  public void start() {
+    JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+    builder.setHost();
+    if (hasSplunkIndex()) {
+      builder.setIndex(splunkIndex);
+    }
+    if (hasSplunkSource()) {
+      builder.setSource(splunkSource);
+    }
+    if (hasSplunkSourcetype()) {
+      builder.setSourcetype(splunkSourcetype);
+    }
+
+    setMessageEventBuilder(builder);
+
+    super.start();
+  }
+
+  @Override
   protected Destination createDestination() throws JMSException {
-    return ActiveMQDestination.createDestination(getDestinationName(), isUseQueue() ? ActiveMQDestination.QUEUE_TYPE : ActiveMQDestination.TOPIC_TYPE);
+    return ActiveMQDestination.createDestination(getDestinationName(), isUseTopic() ? ActiveMQDestination.QUEUE_TYPE : ActiveMQDestination.TOPIC_TYPE);
   }
 }
