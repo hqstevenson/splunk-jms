@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jms.activemq;
-
-import static org.junit.Assert.assertNotNull;
+package com.pronoia.splunk.jms.itest;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
-import com.pronoia.stub.httpec.EventCollectorClientStub;
+import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
+import com.pronoia.splunk.jms.SplunkJmsMessageListener;
+import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
 
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,29 +33,56 @@ import org.slf4j.LoggerFactory;
 /**
  * Tests for the  class.
  */
-public class SplunkActiveMQMessageListenerTest {
+public class SplunkJmsMessageListenerIT {
   static final String DESTINATION_NAME = "queue://audit.in";
+
   @Rule
   public EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
 
   Logger log = LoggerFactory.getLogger(this.getClass());
 
-  EventCollectorClientStub clientStub = new EventCollectorClientStub();
-  SplunkActiveMQMessageListener instance;
+  SimpleEventCollectorClient httpecClient = new SimpleEventCollectorClient();
+
+  SplunkJmsMessageListener instance;
 
   @Before
   public void setUp() throws Exception {
     String brokerURL = String.format("vm://%s?create=false&waitForStart=5000", broker.getBrokerName());
 
-    instance = new SplunkActiveMQMessageListener();
-    instance.setBrokerURL(brokerURL);
-    instance.setUserName("admin");
-    instance.setPassword("admin");
+    instance = new SplunkJmsMessageListener();
+    ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
+
+    connectionFactory.setBrokerURL(brokerURL);
+    connectionFactory.setUserName("admin");
+    connectionFactory.setPassword("admin");
+    instance.setConnectionFactory(connectionFactory);
+
+    JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+
+    builder.setIndex("fuse-dev");
+    builder.setSource("test-source");
+    builder.setSourcetype("test-sourcetype");
+
+    instance.setMessageEventBuilder(builder);
 
     instance.setDestinationName(DESTINATION_NAME);
 
+    httpecClient = new SimpleEventCollectorClient();
+
+    // Local Settings
+    httpecClient.setHost("localhost");
+    httpecClient.setPort(8088);
+    httpecClient.setAuthorizationToken("5DA702AD-D855-4679-9CDE-A398494BE854");
+    httpecClient.disableCertificateValidation();
+
+    // UCLA Settings
+    httpecClient.setHost("lstsplkap19");
+    httpecClient.setPort(8088);
+    httpecClient.setAuthorizationToken("902ADE3D-2895-47F0-ABE6-4981DB2ABE9C");
+    httpecClient.disableCertificateValidation();
+
     log.info("Starting message listener");
-    instance.setSplunkClient(clientStub);
+    instance.setSplunkClient(httpecClient);
 
     instance.start();
   }
@@ -72,11 +100,9 @@ public class SplunkActiveMQMessageListenerTest {
    */
   @Test
   public void testOnMessage() throws Exception {
-    broker.sendTextMessage("queue://audit.in", "Dummy Message Body");
+    broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE");
 
-    Thread.sleep(100);  // Wait for the listener to consume the message
-
-    assertNotNull(clientStub.lastEvent);
+    Thread.sleep(5000);
   }
 
 }

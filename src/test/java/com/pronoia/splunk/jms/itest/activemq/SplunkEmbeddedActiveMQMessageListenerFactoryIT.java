@@ -21,7 +21,6 @@ import static com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert.assertMess
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
-import com.pronoia.splunk.jms.activemq.SplunkActiveMQMessageListener;
 import com.pronoia.splunk.jms.activemq.SplunkEmbeddedActiveMQMessageListenerFactory;
 
 import org.junit.After;

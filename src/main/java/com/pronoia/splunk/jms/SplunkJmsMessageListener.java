@@ -158,42 +158,21 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
       log.trace("Creating JMS Connection for {}", destinationName);
       connection = connectionFactory.createConnection();
     } catch (JMSException jmsEx) {
+      cleanup(false);
       String errorMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
       log.error(errorMessage, jmsEx);
       throw new IllegalStateException(errorMessage, jmsEx);
-    } catch (Throwable unexpectedEx) {
-      String errorMessage = String.format("Unexpected exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
-      log.error(errorMessage, unexpectedEx);
-      throw new IllegalStateException(errorMessage, unexpectedEx);
     }
 
-    for (int i=0; i<5; ++i) {
-      try {
-        // This will throw a JMSSecurityException when the user or password is invalid
-        log.trace("Creating JMS Session for {} - attempt {}", destinationName, i);
-        session = connection.createSession(true, -1);
-        if (session != null) {
-          log.info("Connected on attempt {}", i);
-          break;
-        } else {
-          log.warn("Connection failed - sleeping before reconnect on attempt {}", i);
-          Thread.sleep(5000);
-        }
-      } catch (JMSException jmsEx) {
-        String errorMessage = String.format("Exception encountered creating JMS Session {destinationName name ='%s'} - attempt %d", destinationName, i);
-        log.error(errorMessage, jmsEx);
-        log.warn("Connection failed - sleeping before reconnect on attempt {}", i);
-        try {
-          Thread.sleep(15000);
-        } catch (InterruptedException interruptedEx) {
-          log.info("Sleep for reconnect interrupted", interruptedEx);
-        }
-        // throw new IllegalStateException(errorMessage, jmsEx);
-      } catch (Throwable unexpectedEx) {
-        String errorMessage = String.format("Unexpected exception encountered creating JMS Session {destinationName name ='%s'} - attempt %d", destinationName, i);
-        log.error(errorMessage, unexpectedEx);
-        // throw new IllegalStateException(errorMessage, unexpectedEx);
-      }
+    try {
+      // This will throw a JMSSecurityException when the user or password is invalid
+      log.trace("Creating JMS Session for {}", destinationName);
+      session = connection.createSession(true, -1);
+    } catch (JMSException jmsEx) {
+      cleanup(false);
+      String errorMessage = String.format("Exception encountered creating JMS Session {destinationName name ='%s'}", destinationName);
+      log.error(errorMessage, jmsEx);
+      throw new IllegalStateException(errorMessage, jmsEx);
     }
 
     try {
@@ -201,6 +180,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
       consumer = session.createConsumer(createDestination());
       consumer.setMessageListener(this);
     } catch (JMSException jmsEx) {
+      cleanup(false);
       String errorMessage = String.format("Exception encountered creating JMS MessageConsumer {destinationName name ='%s'}", destinationName);
       log.error(errorMessage, jmsEx);
       throw new IllegalStateException(errorMessage, jmsEx);
@@ -211,10 +191,12 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
       log.trace("Registering the exception listener for {}", destinationName);
       connection.setExceptionListener(this);
     } catch (JMSException jmsEx) {
+      cleanup(false);
       String errorMessage = String.format("Exception encountered registering the exception listener {destinationName name ='%s'}", destinationName);
       log.error(errorMessage, jmsEx);
       throw new IllegalStateException(errorMessage, jmsEx);
     } catch (Throwable unexpectedEx) {
+      cleanup(false);
       String errorMessage = String.format("Exception encountered registering the exception listener  {destinationName name ='%s'}", destinationName);
       log.error(errorMessage, unexpectedEx);
       throw new IllegalStateException(errorMessage, unexpectedEx);
@@ -224,6 +206,7 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
       log.trace("Starting JMS connection for {}", destinationName);
       connection.start();
     } catch (JMSException jmsEx) {
+      cleanup(false);
       String errorMessage = String.format("Exception encountered starting JMS Connection {destinationName name ='%s'}", destinationName);
       log.error(errorMessage, jmsEx);
       throw new IllegalStateException(errorMessage, jmsEx);

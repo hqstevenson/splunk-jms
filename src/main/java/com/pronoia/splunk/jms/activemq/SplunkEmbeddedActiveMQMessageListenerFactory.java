@@ -19,12 +19,16 @@ package com.pronoia.splunk.jms.activemq;
 
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
+import com.pronoia.splunk.jms.activemq.internal.MessageListenerStartupTask;
 import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.management.InstanceNotFoundException;
 import javax.management.ListenerNotFoundException;
@@ -69,15 +73,14 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
   EventCollectorClient splunkClient;
 
-  Map<String, SplunkJmsMessageListener> listenerMap;
+  long startupDelay = 15;
+  TimeUnit startupDelayUnit = TimeUnit.SECONDS;
 
-  static ObjectName newObjectName(String string) {
-    try {
-      return new ObjectName(string);
-    } catch (MalformedObjectNameException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
+  boolean started = false;
+
+  ScheduledExecutorService startupExecutor = Executors.newSingleThreadScheduledExecutor();
+
+  Map<String, SplunkJmsMessageListener> listenerMap = new ConcurrentHashMap<>();
 
   public boolean hasBrokerName() {
     return brokerName != null && !brokerName.isEmpty();
@@ -187,6 +190,30 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
     this.splunkClient = splunkClient;
   }
 
+  public long getStartupDelay() {
+    return startupDelay;
+  }
+
+  public void setStartupDelay(long startupDelay) {
+    this.startupDelay = startupDelay;
+  }
+
+  public TimeUnit getStartupDelayUnit() {
+    return startupDelayUnit;
+  }
+
+  public void setStartupDelayUnit(TimeUnit startupDelayUnit) {
+    this.startupDelayUnit = startupDelayUnit;
+  }
+
+  public boolean isStarted() {
+    return started;
+  }
+
+  public SplunkJmsMessageListener getMessageListener(String canonicalNameString) {
+    return listenerMap.get(canonicalNameString);
+  }
+
   void verifyConfiguration() throws IllegalStateException {
     if (!hasSplunkClient()) {
       throw new IllegalStateException("Splunk Client must be specified");
@@ -213,38 +240,34 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
    * Start NotificationListener, watching for the specific queue.
    */
   synchronized public void start() {
+    if (isStarted()) {
+      log.warn("Attempting to start a previously started {} - ignoring", this.getClass().getSimpleName());
+      return;
+    }
+
     verifyConfiguration();
 
     final ObjectName destinationObjectNamePattern = createDestinationObjectName();
 
-    log.info("Starting {} with ObjectName {}", this.getClass().getSimpleName(), destinationObjectNamePattern);
-
-    if (listenerMap != null) {
-      if (!listenerMap.isEmpty()) {
-        log.info("Stopping current MessageListeners in preparation for startup {}", listenerMap.keySet());
-        for (SplunkJmsMessageListener messageListener : listenerMap.values()) {
-          if (messageListener != null && messageListener.isRunning()) {
-            messageListener.stop();
-          }
-        }
-        listenerMap.clear();
-      }
-    } else {
-      listenerMap = new ConcurrentHashMap();
-    }
+    log.info("Starting {} with ObjectName pattern {}", this.getClass().getSimpleName(), destinationObjectNamePattern);
 
     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
     MBeanServerNotificationFilter notificationFilter = new MBeanServerNotificationFilter();
     notificationFilter.enableAllObjectNames();
     notificationFilter.enableType(MBeanServerNotification.REGISTRATION_NOTIFICATION);
 
-    Set<ObjectName> existingDestinationSet = null;
+    log.debug("Looking for pre-existing destinations");
+    Set<ObjectName> existingDestinationObjectNameSet = mbeanServer.queryNames(createDestinationObjectName(), null);
+    if (existingDestinationObjectNameSet != null && !existingDestinationObjectNameSet.isEmpty()) {
+      for(ObjectName mbeanName : existingDestinationObjectNameSet) {
+        scheduleMessageListenerStartup(mbeanName);
+      }
+    }
 
-    log.debug("Adding JMX NotificationListener");
+    log.debug("Starting JMX NotificationListener watching for ObjectName pattern {}", this.getClass().getSimpleName(), destinationObjectNamePattern);
     try {
       mbeanServer.addNotificationListener(MBeanServerDelegate.DELEGATE_NAME, this, notificationFilter, null);
     } catch (InstanceNotFoundException instanceNotFoundEx) {
-      // TODO: Handle this
       String errorMessage = String.format("Failed to add NotificationListener to '%s' with filter '%s' for '%s' - dynamic destination detection is disabled",
           MBeanServerDelegate.DELEGATE_NAME.getCanonicalName(),
           notificationFilter.toString(),
@@ -252,6 +275,8 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
       );
       log.error(errorMessage, instanceNotFoundEx);
     }
+
+    started = true;
   }
 
   /**
@@ -263,15 +288,9 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
     try {
       mbeanServer.removeNotificationListener(MBeanServerDelegate.DELEGATE_NAME, this);
-    } catch (InstanceNotFoundException instanceNotFoundEx) {
-      // Should never get this one - the MBeanServerDelegate.DELEGATE_NAME should always be there
-      // TODO: Handle this
-      String errorMessage = String.format("Failed to removed NotificationListener from '%s'", MBeanServerDelegate.DELEGATE_NAME.toString());
-      log.error(errorMessage, instanceNotFoundEx);
-    } catch (ListenerNotFoundException listenerNotFoundEx) {
-      // TODO: Handle this
-      String errorMessage = String.format("Failed to removed NotificationListener from '%s'", MBeanServerDelegate.DELEGATE_NAME.toString());
-      log.error(errorMessage, listenerNotFoundEx);
+    } catch (InstanceNotFoundException | ListenerNotFoundException removalEx) {
+      String errorMessage = String.format("Ignoring exception encountered removed NotificationListener from '%s'", MBeanServerDelegate.DELEGATE_NAME.toString());
+      log.error(errorMessage, removalEx);
     }
 
     if (listenerMap != null && !listenerMap.isEmpty()) {
@@ -295,10 +314,10 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
         ObjectName mbeanName = serverNotification.getMBeanName();
         if (destinationObjectNamePattern.apply(mbeanName)) {
-          log.info("ObjectName '{}' matched '{}' - creating startup thread.", mbeanName.getCanonicalName(), destinationObjectNamePattern.getCanonicalName());
-          new ListenerStartupThread(mbeanName).start();
+          log.debug("ObjectName '{}' matched '{}' - scheduling MessageListener startup.", mbeanName.getCanonicalName(), destinationObjectNamePattern.getCanonicalName());
+          scheduleMessageListenerStartup(mbeanName);
         } else {
-          log.debug("ObjectName '{}' did not match '{}' - ignoring.", mbeanName.getCanonicalName(), destinationObjectNamePattern.getCanonicalName());
+          log.trace("ObjectName '{}' did not match '{}' - ignoring.", mbeanName.getCanonicalName(), destinationObjectNamePattern.getCanonicalName());
         }
       }
     }
@@ -323,96 +342,63 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
     return destinationObjectName;
   }
 
-  synchronized SplunkJmsMessageListener createMessageListener(ObjectName objectName) {
+  synchronized void scheduleMessageListenerStartup(ObjectName objectName) {
     String objectNameString = objectName.getCanonicalName();
 
-    SplunkJmsMessageListener queueListener = null;
-
     if (listenerMap.containsKey(objectNameString)) {
-      log.info("Skipping creation of MessageListener for {} - instance already exists", objectName);
-      // queueListener = listenerMap.get(objectNameString);
-    } else {
-      log.info("Creating MessageListener for '{}'", objectName);
-
-      queueListener = new SplunkJmsMessageListener();
-
-      ActiveMQConnectionFactory tmpConnectionFactory = new ActiveMQConnectionFactory();
-      // tmpConnectionFactory.setBrokerURL(String.format("vm://%s?create=false&waitForStart=60000", objectName.getKeyProperty("brokerName")));
-      tmpConnectionFactory.setBrokerURL(String.format("vm://%s?create=false", objectName.getKeyProperty("brokerName")));
-
-      RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
-      redeliveryPolicy.setInitialRedeliveryDelay(1000);
-      redeliveryPolicy.setMaximumRedeliveryDelay(60000);
-      redeliveryPolicy.setBackOffMultiplier(1.5);
-      redeliveryPolicy.setUseExponentialBackOff(true);
-      redeliveryPolicy.setMaximumRedeliveries(-1);
-
-      tmpConnectionFactory.setRedeliveryPolicy(redeliveryPolicy);
-
-      if (hasUserName()) {
-        tmpConnectionFactory.setUserName(userName);
-      }
-      if (hasPassword()) {
-        tmpConnectionFactory.setPassword(password);
-      }
-
-      queueListener.setConnectionFactory(tmpConnectionFactory);
-
-      JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
-      builder.setHost();
-      if (hasSplunkIndex()) {
-        builder.setIndex(splunkIndex);
-      }
-      if (hasSplunkSource()) {
-        builder.setSource(splunkSource);
-      }
-      if (hasSplunkSourcetype()) {
-        builder.setSourcetype(splunkSourcetype);
-      }
-
-      queueListener.setMessageEventBuilder(builder);
-      queueListener.setSplunkClient(splunkClient);
-
-      queueListener.setDestinationName(objectName.getKeyProperty("destinationName"));
-
-      if (listenerMap == null) {
-        listenerMap = new ConcurrentHashMap<>();
-      }
-
-      log.info("Adding listener '{}' to map containing {}", objectNameString, listenerMap.keySet());
-      listenerMap.put(objectNameString, queueListener);
+      log.debug("MessageListener startup already scheduled for {} - ignoring", objectNameString);
+      return;
     }
 
-    return queueListener;
-  }
+    log.info("Scheduling MessageListener startup for {}", objectNameString);
 
-  class ListenerStartupThread extends Thread {
-    ObjectName mbeanName;
+    SplunkJmsMessageListener newMessageListener = new SplunkJmsMessageListener();
 
-    public ListenerStartupThread(ObjectName objectName) {
-      mbeanName = objectName;
-      this.setName("ListenerStartupThread - " + objectName.getCanonicalName());
+    ActiveMQConnectionFactory tmpConnectionFactory = new ActiveMQConnectionFactory();
+    tmpConnectionFactory.setBrokerURL(String.format("vm://%s?create=false", objectName.getKeyProperty("brokerName")));
+
+    RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
+    redeliveryPolicy.setInitialRedeliveryDelay(1000);
+    redeliveryPolicy.setMaximumRedeliveryDelay(60000);
+    redeliveryPolicy.setBackOffMultiplier(1.5);
+    redeliveryPolicy.setUseExponentialBackOff(true);
+    redeliveryPolicy.setMaximumRedeliveries(-1);
+
+    tmpConnectionFactory.setRedeliveryPolicy(redeliveryPolicy);
+
+    if (hasUserName()) {
+      tmpConnectionFactory.setUserName(userName);
+    }
+    if (hasPassword()) {
+      tmpConnectionFactory.setPassword(password);
     }
 
-    @Override
-    public void run() {
-      if (listenerMap.containsKey(mbeanName.getCanonicalName())) {
-        log.info("Skipping creating MessageListener for '{}' - already create");
-      } else {
-        SplunkJmsMessageListener queueListener = createMessageListener(mbeanName);
+    newMessageListener.setConnectionFactory(tmpConnectionFactory);
 
-        if (queueListener != null && !queueListener.isRunning()) {
-          try {
-            log.info("Sleeping before starting consumer");
-            Thread.sleep(5000);
-          } catch (InterruptedException e) {
-            e.printStackTrace();
-          }
-          queueListener.start();
-          log.info("Consumer started");
-        }
-      }
+    JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+    builder.setHost();
+    if (hasSplunkIndex()) {
+      builder.setIndex(splunkIndex);
     }
+    if (hasSplunkSource()) {
+      builder.setSource(splunkSource);
+    }
+    if (hasSplunkSourcetype()) {
+      builder.setSourcetype(splunkSourcetype);
+    }
+
+    newMessageListener.setMessageEventBuilder(builder);
+    newMessageListener.setSplunkClient(splunkClient);
+
+    newMessageListener.setDestinationName(objectName.getKeyProperty("destinationName"));
+
+    if (!listenerMap.containsKey(objectNameString)) {
+      log.info("Scheduling MessageListener for {}", objectNameString);
+      listenerMap.put(objectNameString, newMessageListener);
+      startupExecutor.schedule(new MessageListenerStartupTask(this, objectNameString), startupDelay, startupDelayUnit);
+    }
+
+    return;
   }
 
 }
