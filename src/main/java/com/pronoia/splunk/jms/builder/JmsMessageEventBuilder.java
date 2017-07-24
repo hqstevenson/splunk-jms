@@ -1,10 +1,11 @@
 package com.pronoia.splunk.jms.builder;
 
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
-import com.pronoia.splunk.eventcollector.builder.EventBuilderSupport;
+import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
 
 import java.io.Serializable;
 import java.util.Enumeration;
+import java.util.Map;
 
 import javax.jms.BytesMessage;
 import javax.jms.Destination;
@@ -17,7 +18,7 @@ import javax.jms.TextMessage;
 
 import org.json.simple.JSONObject;
 
-public class JmsMessageEventBuilder extends EventBuilderSupport<Message> {
+public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> {
   final String containerName = System.getProperty("karaf.name");
 
   public boolean hasContainerName() {
@@ -29,7 +30,7 @@ public class JmsMessageEventBuilder extends EventBuilderSupport<Message> {
   }
 
   @Override
-  protected void serializeFields(JSONObject eventObject) {
+  protected void serializeFields(Map eventObject) {
     if (hasContainerName()) {
       addField(JmsMessageEventConstants.CONTAINER_FIELD, containerName);
     }
@@ -42,7 +43,7 @@ public class JmsMessageEventBuilder extends EventBuilderSupport<Message> {
   }
 
   @Override
-  protected void serializeBody(JSONObject eventObject) {
+  protected void serializeBody(Map<String, Object> eventObject) {
     if (hasEvent()) {
       Message jmsMessage = getEvent();
       if (jmsMessage instanceof TextMessage) {

@@ -81,7 +81,7 @@ public class SplunkJmsMessageListenerLifecycleTest {
   }
 
   /**
-   * Make the listener stops when the connection is lost.
+   * Make the listener stop when the connection is lost.
    *
    * @throws Exception in the event of a test error.
    */
@@ -94,7 +94,7 @@ public class SplunkJmsMessageListenerLifecycleTest {
 
     broker.sendTextMessage(DESTINATION_NAME, "Dummy Body");
 
-    Thread.sleep(100);  // Wait for the listener to consume the message
+    Thread.sleep(1000);  // Wait for the listener to consume the message
 
     assertNotNull(clientStub.lastEvent);
 
