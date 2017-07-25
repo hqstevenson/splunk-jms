@@ -20,6 +20,7 @@ package com.pronoia.splunk.jms.activemq;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
 import com.pronoia.splunk.jms.activemq.internal.MessageListenerStartupTask;
+import com.pronoia.splunk.jms.builder.CamelJmsMessageEventBuilder;
 import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
 
 import java.lang.management.ManagementFactory;
@@ -60,6 +61,8 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
   Logger log = LoggerFactory.getLogger(this.getClass());
 
+  boolean useCamelBuilder = false;
+
   String brokerName = DEFAULT_BROKER_NAME;
   String userName;
   String password;
@@ -81,6 +84,14 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
   ScheduledExecutorService startupExecutor = Executors.newSingleThreadScheduledExecutor();
 
   Map<String, SplunkJmsMessageListener> listenerMap = new ConcurrentHashMap<>();
+
+  public boolean isUseCamelBuilder() {
+    return useCamelBuilder;
+  }
+
+  public void setUseCamelBuilder(boolean useCamelBuilder) {
+    this.useCamelBuilder = useCamelBuilder;
+  }
 
   public boolean hasBrokerName() {
     return brokerName != null && !brokerName.isEmpty();
@@ -375,7 +386,8 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
     newMessageListener.setConnectionFactory(tmpConnectionFactory);
 
-    JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+    JmsMessageEventBuilder builder = useCamelBuilder ? new CamelJmsMessageEventBuilder() : new JmsMessageEventBuilder();
+
     builder.setHost();
     if (hasSplunkIndex()) {
       builder.setIndex(splunkIndex);

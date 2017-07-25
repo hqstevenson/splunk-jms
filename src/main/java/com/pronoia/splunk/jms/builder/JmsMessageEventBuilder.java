@@ -118,7 +118,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
     }
   }
 
-  void extractMessageHeaderFields() {
+  protected void extractMessageHeaderFields() {
     if (hasEvent()) {
       final String logMessageFormat = "Error Reading JMS Message Header '{}' - ignoring";
 
@@ -228,7 +228,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
     }
   }
 
-  void extractMessagePropertyFields() {
+  protected void extractMessagePropertyFields() {
     if (hasEvent()) {
       Message jmsMessage = getEvent();
       try {
