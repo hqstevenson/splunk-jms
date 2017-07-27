@@ -20,7 +20,7 @@ package com.pronoia.stub.httpec;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
-import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 public class EventCollectorClientStub  implements EventCollectorClient {
   EventBuilder eventBuilder = new JmsMessageEventBuilder();

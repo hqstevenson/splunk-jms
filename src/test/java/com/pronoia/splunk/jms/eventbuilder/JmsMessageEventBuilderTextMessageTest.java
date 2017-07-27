@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jms.builder;
+package com.pronoia.splunk.jms.eventbuilder;
+
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Ignore;
@@ -24,8 +26,8 @@ import org.junit.Test;
 /**
  * Tests for the JmsMessageEventBuilder with TextMessages class.
  */
-@Ignore("JmsMessageEventBuilderMessagePropertiesTest not yet implemented")
-public class JmsMessageEventBuilderMessagePropertiesTest {
+@Ignore("JmsMessageEventBuilderTextMessageTest not yet implemented")
+public class JmsMessageEventBuilderTextMessageTest {
   JmsMessageEventBuilder instance;
 
   @Before

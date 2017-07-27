@@ -20,10 +20,8 @@ package com.pronoia.splunk.jms;
 import static org.junit.Assert.assertNotNull;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
-import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 import com.pronoia.stub.httpec.EventCollectorClientStub;
-
-import java.net.InetSocketAddress;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.junit.After;

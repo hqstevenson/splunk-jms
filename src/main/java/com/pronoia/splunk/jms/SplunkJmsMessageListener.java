@@ -20,7 +20,7 @@ package com.pronoia.splunk.jms;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
-import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -296,10 +296,10 @@ public class SplunkJmsMessageListener implements MessageListener, ExceptionListe
           log.warn("Failed to retrieve value of JMSMessageID and JMSTimestamp for onMessage received log entry");
         }
       }
-      messageEventBuilder.setEvent(message);
+      String eventBody = messageEventBuilder.event(message).build();
 
       try {
-        splunkClient.sendEvent(messageEventBuilder.build());
+        splunkClient.sendEvent(eventBody);
         try {
           // message.acknowledge();
           session.commit();

@@ -1,4 +1,6 @@
-package com.pronoia.splunk.jms.builder;
+package com.pronoia.splunk.jms.eventbuilder;
+
+import com.pronoia.splunk.eventcollector.EventBuilder;
 
 import java.util.Enumeration;
 
@@ -39,6 +41,15 @@ public class CamelJmsMessageEventBuilder extends JmsMessageEventBuilder {
         log.warn(logMessage, getPropertyNamesEx);
       }
     }
+  }
+
+  @Override
+  public EventBuilder<Message> duplicate() {
+    CamelJmsMessageEventBuilder answer = new CamelJmsMessageEventBuilder();
+
+    answer.copyConfiguration(this);
+
+    return answer;
   }
 
 }

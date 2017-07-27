@@ -17,11 +17,11 @@
 
 package com.pronoia.splunk.jms.activemq;
 
+import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
 import com.pronoia.splunk.jms.activemq.internal.MessageListenerStartupTask;
-import com.pronoia.splunk.jms.builder.CamelJmsMessageEventBuilder;
-import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.Map;
@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import javax.jms.Message;
 import javax.management.InstanceNotFoundException;
 import javax.management.ListenerNotFoundException;
 import javax.management.MBeanServer;
@@ -61,8 +62,6 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
   Logger log = LoggerFactory.getLogger(this.getClass());
 
-  boolean useCamelBuilder = false;
-
   String brokerName = DEFAULT_BROKER_NAME;
   String userName;
   String password;
@@ -75,6 +74,7 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
   String splunkSourcetype;
 
   EventCollectorClient splunkClient;
+  EventBuilder<Message> splunkEventBuilder;
 
   long startupDelay = 15;
   TimeUnit startupDelayUnit = TimeUnit.SECONDS;
@@ -84,14 +84,6 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
   ScheduledExecutorService startupExecutor = Executors.newSingleThreadScheduledExecutor();
 
   Map<String, SplunkJmsMessageListener> listenerMap = new ConcurrentHashMap<>();
-
-  public boolean isUseCamelBuilder() {
-    return useCamelBuilder;
-  }
-
-  public void setUseCamelBuilder(boolean useCamelBuilder) {
-    this.useCamelBuilder = useCamelBuilder;
-  }
 
   public boolean hasBrokerName() {
     return brokerName != null && !brokerName.isEmpty();
@@ -201,6 +193,18 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
     this.splunkClient = splunkClient;
   }
 
+  public boolean hasSplunkEventBuilder() {
+    return splunkEventBuilder != null;
+  }
+
+  public EventBuilder<Message> getSplunkEventBuilder() {
+    return splunkEventBuilder;
+  }
+
+  public void setSplunkEventBuilder(EventBuilder<Message> splunkEventBuilder) {
+    this.splunkEventBuilder = splunkEventBuilder;
+  }
+
   public long getStartupDelay() {
     return startupDelay;
   }
@@ -228,6 +232,11 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
   void verifyConfiguration() throws IllegalStateException {
     if (!hasSplunkClient()) {
       throw new IllegalStateException("Splunk Client must be specified");
+    }
+
+    if (!hasSplunkEventBuilder()) {
+      splunkEventBuilder = new JmsMessageEventBuilder();
+      log.warn("Splunk EventBuilder<{}> is not specified - using default '{}'", Message.class.getName(), splunkEventBuilder.getClass().getName());
     }
 
     if (!hasBrokerName()) {
@@ -385,21 +394,8 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
     }
 
     newMessageListener.setConnectionFactory(tmpConnectionFactory);
+    newMessageListener.setMessageEventBuilder(splunkEventBuilder.duplicate());
 
-    JmsMessageEventBuilder builder = useCamelBuilder ? new CamelJmsMessageEventBuilder() : new JmsMessageEventBuilder();
-
-    builder.setHost();
-    if (hasSplunkIndex()) {
-      builder.setIndex(splunkIndex);
-    }
-    if (hasSplunkSource()) {
-      builder.setSource(splunkSource);
-    }
-    if (hasSplunkSourcetype()) {
-      builder.setSourcetype(splunkSourcetype);
-    }
-
-    newMessageListener.setMessageEventBuilder(builder);
     newMessageListener.setSplunkClient(splunkClient);
 
     newMessageListener.setDestinationName(objectName.getKeyProperty("destinationName"));

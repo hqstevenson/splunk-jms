@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jms.builder;
+package com.pronoia.splunk.jms.eventbuilder;
 
 import com.pronoia.stub.jms.JmsMessageStub;
 

@@ -20,7 +20,7 @@ package com.pronoia.splunk.jms.itest;
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
-import com.pronoia.splunk.jms.builder.JmsMessageEventBuilder;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.junit.After;

@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jms</artifactId>
     <packaging>bundle</packaging>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 
     <name>Splunk ActiveMQ Support Classes</name>
 
@@ -35,7 +35,7 @@
         <dependency>
             <groupId>com.pronoia.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>0.1.5</version>
+            <version>0.1.6</version>
         </dependency>
 
         <dependency>

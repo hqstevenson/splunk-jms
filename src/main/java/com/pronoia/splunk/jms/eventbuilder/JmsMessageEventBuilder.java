@@ -1,7 +1,8 @@
-package com.pronoia.splunk.jms.builder;
+package com.pronoia.splunk.jms.eventbuilder;
 
+import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
-import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
+import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
 
 import java.io.Serializable;
 import java.util.Enumeration;
@@ -19,21 +20,19 @@ import javax.jms.TextMessage;
 import org.json.simple.JSONObject;
 
 public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> {
-  final String containerName = System.getProperty("karaf.name");
-
-  public boolean hasContainerName() {
-    return containerName != null && !containerName.isEmpty();
-  }
-
-  public String getContainerName() {
-    return containerName;
-  }
+  public static final String JMS_DESTINATION_FIELD = "JMSDestination";
+  public static final String JMS_DELIVERY_MODE_FIELD = "JMSDeliveryMode";
+  public static final String JMS_EXPIRATION_FIELD = "JMSExpiration";
+  public static final String JMS_PRIORITY_FIELD = "JMSPriority";
+  public static final String JMS_MESSAGE_ID_FIELD = "JMSMessageID";
+  public static final String JMS_TIMESTAMP_FIELD = "JMSTimestamp";
+  public static final String JMS_CORRELATION_ID_FIELD = "JMSCorrelationID";
+  public static final String JMS_REPLY_TO_FIELD = "JMSReplyTo";
+  public static final String JMS_TYPE_FIELD = "JMSType";
+  public static final String JMS_REDELIVERED_FIELD = "JMSRedelivered";
 
   @Override
   protected void serializeFields(Map eventObject) {
-    if (hasContainerName()) {
-      addField(JmsMessageEventConstants.CONTAINER_FIELD, containerName);
-    }
     if (hasEvent()) {
       extractMessageHeaderFields();
       extractMessagePropertyFields();
@@ -128,11 +127,11 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         // JMSTimestamp is a little special - we use it for the Event timestamp as well as a field
         Long jmsTimestamp = jmsMessage.getJMSTimestamp();
         if (jmsTimestamp != null) {
-          addField(JmsMessageEventConstants.JMS_TIMESTAMP_FIELD, jmsTimestamp.toString());
+          addField(JMS_TIMESTAMP_FIELD, jmsTimestamp.toString());
           setTimestamp( jmsTimestamp / 1000.0);
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_TIMESTAMP_FIELD);
+        log.warn(logMessageFormat, JMS_TIMESTAMP_FIELD);
       }
 
       try {
@@ -140,87 +139,87 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         Destination jmsDestination = jmsMessage.getJMSDestination();
         if (jmsDestination != null) {
           String destinationString = jmsDestination.toString();
-          addField(JmsMessageEventConstants.JMS_DESTINATION_FIELD, destinationString);
+          addField(JMS_DESTINATION_FIELD, destinationString);
           if (!hasSource()) {
             setSource(destinationString);
           }
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_DESTINATION_FIELD);
+        log.warn(logMessageFormat, JMS_DESTINATION_FIELD);
       }
 
       try {
         Integer jmsDeliveryMode = jmsMessage.getJMSDeliveryMode();
         if (jmsDeliveryMode != null) {
-          addField(JmsMessageEventConstants.JMS_DELIVERY_MODE_FIELD, jmsDeliveryMode.toString());
+          addField(JMS_DELIVERY_MODE_FIELD, jmsDeliveryMode.toString());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_DELIVERY_MODE_FIELD);
+        log.warn(logMessageFormat, JMS_DELIVERY_MODE_FIELD);
       }
 
       try {
         Long jmsExpiration = jmsMessage.getJMSExpiration();
         if (jmsExpiration != null && jmsExpiration != 0) {
-          addField(JmsMessageEventConstants.JMS_EXPIRATION_FIELD, jmsExpiration.toString());
+          addField(JMS_EXPIRATION_FIELD, jmsExpiration.toString());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_EXPIRATION_FIELD);
+        log.warn(logMessageFormat, JMS_EXPIRATION_FIELD);
       }
 
       try {
         Integer jmsPriority = jmsMessage.getJMSPriority();
         if (jmsPriority != null) {
-          addField(JmsMessageEventConstants.JMS_PRIORITY_FIELD, jmsPriority.toString());
+          addField(JMS_PRIORITY_FIELD, jmsPriority.toString());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_PRIORITY_FIELD);
+        log.warn(logMessageFormat, JMS_PRIORITY_FIELD);
       }
 
       try {
         String jmsMessageID = jmsMessage.getJMSMessageID();
         if (jmsMessageID != null && !jmsMessageID.isEmpty()) {
-          addField(JmsMessageEventConstants.JMS_MESSAGE_ID_FIELD, jmsMessageID);
+          addField(JMS_MESSAGE_ID_FIELD, jmsMessageID);
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_MESSAGE_ID_FIELD);
+        log.warn(logMessageFormat, JMS_MESSAGE_ID_FIELD);
       }
 
       try {
         String jmsCorrelationID = jmsMessage.getJMSCorrelationID();
         if (jmsCorrelationID != null && !jmsCorrelationID.isEmpty()) {
-          addField(JmsMessageEventConstants.JMS_CORRELATION_ID_FIELD, jmsCorrelationID);
+          addField(JMS_CORRELATION_ID_FIELD, jmsCorrelationID);
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_CORRELATION_ID_FIELD);
+        log.warn(logMessageFormat, JMS_CORRELATION_ID_FIELD);
       }
 
       try {
         Destination jmsReplyTo = jmsMessage.getJMSReplyTo();
         if (jmsReplyTo != null) {
-          addField(JmsMessageEventConstants.JMS_REPLY_TO_FIELD, jmsReplyTo.toString());
+          addField(JMS_REPLY_TO_FIELD, jmsReplyTo.toString());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_REPLY_TO_FIELD);
+        log.warn(logMessageFormat, JMS_REPLY_TO_FIELD);
       }
 
       try {
         String jmsType = jmsMessage.getJMSType();
         if (jmsType != null && !jmsType.isEmpty()) {
-          addField(JmsMessageEventConstants.JMS_TYPE_FIELD, jmsType);
+          addField(JMS_TYPE_FIELD, jmsType);
         } else {
-          addField(JmsMessageEventConstants.JMS_TYPE_FIELD, jmsMessage.getClass().getName());
+          addField(JMS_TYPE_FIELD, jmsMessage.getClass().getName());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_TYPE_FIELD);
+        log.warn(logMessageFormat, JMS_TYPE_FIELD);
       }
 
       try {
         Boolean jmsRedelivered = jmsMessage.getJMSRedelivered();
         if (jmsRedelivered != null) {
-          addField(JmsMessageEventConstants.JMS_REDELIVERED_FIELD, jmsRedelivered.toString());
+          addField(JMS_REDELIVERED_FIELD, jmsRedelivered.toString());
         }
       } catch (JMSException jmsHeaderEx) {
-        log.warn(logMessageFormat, JmsMessageEventConstants.JMS_REDELIVERED_FIELD);
+        log.warn(logMessageFormat, JMS_REDELIVERED_FIELD);
       }
 
     } else {
@@ -257,4 +256,12 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
     }
   }
 
+  @Override
+  public EventBuilder<Message> duplicate() {
+    JmsMessageEventBuilder answer = new JmsMessageEventBuilder();
+
+    answer.copyConfiguration(this);
+
+    return answer;
+  }
 }
