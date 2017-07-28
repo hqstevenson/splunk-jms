@@ -69,10 +69,6 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
   String destinationType = DEFAULT_DESTINATION_TYPE;
   String destinationName = DEFAULT_DESTINATION_NAME;
 
-  String splunkIndex;
-  String splunkSource;
-  String splunkSourcetype;
-
   EventCollectorClient splunkClient;
   EventBuilder<Message> splunkEventBuilder;
 
@@ -143,42 +139,6 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
   public void setDestinationName(String destinationName) {
     this.destinationName = destinationName;
-  }
-
-  public boolean hasSplunkIndex() {
-    return splunkIndex != null && !splunkIndex.isEmpty();
-  }
-
-  public String getSplunkIndex() {
-    return splunkIndex;
-  }
-
-  public void setSplunkIndex(String splunkIndex) {
-    this.splunkIndex = splunkIndex;
-  }
-
-  public boolean hasSplunkSource() {
-    return splunkSource != null && !splunkSource.isEmpty();
-  }
-
-  public String getSplunkSource() {
-    return splunkSource;
-  }
-
-  public void setSplunkSource(String splunkSource) {
-    this.splunkSource = splunkSource;
-  }
-
-  public boolean hasSplunkSourcetype() {
-    return splunkSourcetype != null && !splunkSourcetype.isEmpty();
-  }
-
-  public String getSplunkSourcetype() {
-    return splunkSourcetype;
-  }
-
-  public void setSplunkSourcetype(String splunkSourcetype) {
-    this.splunkSourcetype = splunkSourcetype;
   }
 
   public boolean hasSplunkClient() {

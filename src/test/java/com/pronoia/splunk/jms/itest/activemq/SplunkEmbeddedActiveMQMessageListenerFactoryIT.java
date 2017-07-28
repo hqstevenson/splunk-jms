@@ -22,6 +22,7 @@ import static com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert.assertMess
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
 import com.pronoia.splunk.jms.activemq.SplunkEmbeddedActiveMQMessageListenerFactory;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import org.junit.After;
 import org.junit.Before;
@@ -57,9 +58,13 @@ public class SplunkEmbeddedActiveMQMessageListenerFactoryIT {
     instance.setUserName("admin");
     instance.setPassword("admin");
 
-    instance.setSplunkIndex("fuse-dev");
-    instance.setSplunkSource("test-source");
-    instance.setSplunkSourcetype("test-sourcetype");
+    JmsMessageEventBuilder eventBuilder = new JmsMessageEventBuilder();
+
+    eventBuilder.setIndex("fuse-dev");
+    eventBuilder.setSource("test-source");
+    eventBuilder.setSourcetype("test-sourcetype");
+
+    instance.setSplunkEventBuilder(eventBuilder);
 
     instance.setDestinationName(DESTINATION_NAME);
 
