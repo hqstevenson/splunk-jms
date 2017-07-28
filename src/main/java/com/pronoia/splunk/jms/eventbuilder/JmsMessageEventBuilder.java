@@ -33,6 +33,10 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
   @Override
   protected void serializeFields(Map eventObject) {
+    if (!hasHost()) {
+      setHost();
+    }
+
     if (hasEvent()) {
       extractMessageHeaderFields();
       extractMessagePropertyFields();

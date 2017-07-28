@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+           xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0">
+
+    <cm:property-placeholder persistent-id="JmsNamespaceHandler">
+        <cm:default-properties>
+            <cm:property name="jms-user" value=""/>
+            <cm:property name="jms-password" value=""/>
+        </cm:default-properties>
+    </cm:property-placeholder>
+
+    <bean id="splunk-client" class="com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient" init-method="start" destroy-method="stop">
+        <property name="host" value="localhost" />
+        <property name="port" value="8088" />
+        <property name="authorizationToken" value="5DA702AD-D855-4679-9CDE-A398494BE854" />
+        <property name="validateCertificates" value="false" />
+    </bean>
+
+
+    <bean class="com.pronoia.splunk.jms.activemq.SplunkEmbeddedActiveMQMessageListenerFactory" init-method="start" destroy-method="stop">
+        <property name="userName" value="ucla" />
+        <property name="password" value="ucla" />
+        <property name="destinationType" value="Queue" />
+        <property name="destinationName" value="audit.*" />
+        <property name="splunkClient" ref="splunk-client"/>
+        <property name="splunkEventBuilder">
+            <bean class="com.pronoia.splunk.jms.eventbuilder.CamelJmsMessageEventBuilder">
+                <property name="index" value="fuse-dev" />
+                <property name="sourcetype" value="hl7v2-message" />
+                <property name="includedSystemProperties">
+                    <map key-type="java.lang.String" value-type="java.lang.String">
+                        <entry key="karaf.name" value="container"/>
+                    </map>
+                </property>
+            </bean>
+        </property>
+    </bean>
+
+</blueprint>
