@@ -21,6 +21,7 @@ import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
 import com.pronoia.splunk.jms.activemq.internal.MessageListenerStartupTask;
+import com.pronoia.splunk.jms.activemq.internal.NamedThreadFactory;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import java.lang.management.ManagementFactory;
@@ -77,7 +78,7 @@ public class SplunkEmbeddedActiveMQMessageListenerFactory implements Notificatio
 
   boolean started = false;
 
-  ScheduledExecutorService startupExecutor = Executors.newSingleThreadScheduledExecutor();
+  ScheduledExecutorService startupExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(this.getClass().getSimpleName()));
 
   Map<String, SplunkJmsMessageListener> listenerMap = new ConcurrentHashMap<>();
 
