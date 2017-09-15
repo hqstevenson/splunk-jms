@@ -46,7 +46,7 @@ public class JmsMessageEventBuilderMessageHeadersTest {
    */
   @Test
   public void test() throws Exception {
-    instance.extractMessageHeaderFields();
+    instance.extractMessageHeadersToMap(instance.getEventBody(), instance.getFields());
 
     throw new UnsupportedOperationException("testserializeFields not yet implemented");
   }
@@ -58,7 +58,7 @@ public class JmsMessageEventBuilderMessageHeadersTest {
    */
   @Ignore("Test for serializeBody method not yet implemented")
   @Test
-  public void testserializeBody() throws Exception {
+  public void testSerializeBody() throws Exception {
     throw new UnsupportedOperationException("testserializeBody not yet implemented");
   }
 

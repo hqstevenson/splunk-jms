@@ -55,10 +55,8 @@ public class SplunkJmsMessageListenerLifecycleTest {
     connectionFactory.setUserName("admin");
     connectionFactory.setPassword("admin");
 
-    instance = new SplunkJmsMessageListener();
+    instance = new SplunkJmsMessageListener(DESTINATION_NAME);
     instance.setConnectionFactory(connectionFactory);
-
-    instance.setDestinationName(DESTINATION_NAME);
 
     log.info("Starting message listener");
     instance.setSplunkClient(clientStub);
@@ -90,7 +88,7 @@ public class SplunkJmsMessageListenerLifecycleTest {
     broker.start();
     instance.start();
 
-    assertTrue("Listener should be running", instance.isRunning());
+    assertTrue("Listener should be connectionStarted", instance.isConnectionStarted());
 
     broker.sendTextMessage(DESTINATION_NAME, "Dummy Body");
 
@@ -102,6 +100,6 @@ public class SplunkJmsMessageListenerLifecycleTest {
 
     Thread.sleep(100);
 
-    assertFalse("Listener should not be running", instance.isRunning());
+    assertFalse("Listener should not be connectionStarted", instance.isConnectionStarted());
   }
 }

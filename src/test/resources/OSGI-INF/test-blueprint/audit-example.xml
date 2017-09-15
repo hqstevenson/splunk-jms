@@ -21,7 +21,7 @@
         <property name="userName" value="ucla" />
         <property name="password" value="ucla" />
         <property name="destinationType" value="Queue" />
-        <property name="destinationName" value="audit.*" />
+        <property name="destinationNamePattern" value="audit.*" />
         <property name="splunkClient" ref="splunk-client"/>
         <property name="splunkEventBuilder">
             <bean class="com.pronoia.splunk.jms.eventbuilder.CamelJmsMessageEventBuilder">

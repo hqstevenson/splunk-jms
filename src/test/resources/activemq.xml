@@ -34,7 +34,7 @@
                             <constantPendingMessageLimitStrategy limit="1000"/>
                         </pendingMessageLimitStrategy>
                     </policyEntry>
-                    <policyEntry queue=">" producerFlowControl="true" memoryLimit="1mb">
+                    <policyEntry queue=">" producerFlowControl="true" memoryLimit="1mb" >
                     </policyEntry>
                 </policyEntries>
             </policyMap>

@@ -1,0 +1,51 @@
+MSH|^~\&|ADT|RRMC|Intermedix|CC|20170726142521|EDMD|ADT^A08|42359|D|2.3
+PID|1||4489527^^^MRN^MRN||F^RME||19411219|M|||^^^^^USA^P|||||||4489527^^^MRN^MRN
+PV1||||||||||||||||||||||||||||||||||||||||||||20161219105307
+
+
+Header - JMSCorrelationID
+Header - JMSDeliveryMode	PERSISTENT
+Header - JMSDestination	queue://ActiveMQ.DLQ
+Header - JMSExpiration	0
+Header - JMSMessageID	ID:lsdiesbap01.medctr.ucla.edu-34940-1501016879632-13:1:1:1:1
+Header - JMSPriority	4
+Header - JMSRedelivered	false
+Header - JMSReplyTo
+Header - JMSTimestamp	2017-07-26T14:25:29-07:00
+Header - JMSType
+Header - JMSXGroupID
+Header - JMSXGroupSeq	0
+Header - JMSXUserID
+Header - BrokerPath	null
+Header - OriginalDestination	queue://audit.out
+Boolean Property - CamelMllpAutoAcknowledge	true
+Long Property - originalExpiration	0
+Long Property - redeliveryDelay	60000
+String Property - CamelMllpLocalAddress	/10.12.171.13
+String Property - ReceivingCamelId	Epic ADT
+String Property - ReceivingContainerName	camel_inbound
+String Property - ReceivingDestinationName	topic:vt.in.epic.adt
+String Property - ReceivingRouteId	mllp-receiver-7000
+String Property - TranslatingCamelId	Epic to Intermedix ADT
+String Property - TranslatingDestinationName	queue:out.intermedix.adt
+String Property - TranslatingRouteId	Epic to Intermedix ADT-translation
+String Property - breadcrumbId	ID-lsdiesbap01-medctr-ucla-edu-43409-1501015982352-65-147
+String Property - dlqDeliveryFailureCause	java.lang.Throwable: duplicate from store for queue://audit.out
+String Property - scheduledJobId	ID:lsdiesbap01.medctr.ucla.edu-34940-1501016879632-13:1:1:1:1
+String Property - ucla_MSH_HYPHEN_10	42359
+String Property - ucla_MSH_HYPHEN_11	D
+String Property - ucla_MSH_HYPHEN_12	2.3
+String Property - ucla_MSH_HYPHEN_3	ADT
+String Property - ucla_MSH_HYPHEN_4	EPIC
+String Property - ucla_MSH_HYPHEN_5	JCAPS
+String Property - ucla_MSH_HYPHEN_6	CC
+String Property - ucla_MSH_HYPHEN_7	20170726142521
+String Property - ucla_MSH_HYPHEN_8	EDMD
+String Property - ucla_MSH_HYPHEN_9	ADT^A08
+String Property - ucla_MSH_HYPHEN_9_HYPHEN_1	ADT
+String Property - ucla_MSH_HYPHEN_9_HYPHEN_2	A08
+String Property - ucla_PID_HYPHEN_18	90000065344
+String Property - ucla_PID_HYPHEN_3_HYPHEN_1	4489527
+String Property - ucla_PV1_HYPHEN_19	90000065344
+String Property - ucla_PV1_HYPHEN_2	EMERGENCY
+String Property - ucla_PV1_HYPHEN_3	RR ED

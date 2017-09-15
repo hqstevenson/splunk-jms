@@ -30,12 +30,14 @@ import org.junit.Test;
 /**
  * Configuration Tests for the SplunkJmsMessageListener class.
  */
-public class SplunkJmsMessageListenerConfigurationTest {
-  SplunkJmsMessageListener instance;
+public class SplunkJmsConsumerSupportConfigurationTest {
+  static final String DESTINATION_NAME = "myDestinationName";
+
+  SplunkJmsConsumerSupport instance;
 
   @Before
   public void setUp() throws Exception {
-    instance = new SplunkJmsMessageListener();
+    instance = new SplunkJmsConsumerSupport(DESTINATION_NAME);
   }
 
   /**
@@ -43,32 +45,16 @@ public class SplunkJmsMessageListenerConfigurationTest {
    */
   @Test
   public void testGetDestinationName() throws Exception {
-    assertNull(instance.destinationName);
-
-    final String expected = "myDestinationName";
-    instance.destinationName = expected;
-    assertEquals(expected, instance.getDestinationName());
+    assertEquals(DESTINATION_NAME, instance.getDestinationName());
   }
 
   /**
    * @throws Exception in the event of a test error.
    */
-  @Test
-  public void testSetDestinationName() throws Exception {
-    assertNull(instance.destinationName);
-
-    final String expected = "myDestinationName";
-    instance.setDestinationName(expected);
-    assertEquals(expected, instance.destinationName.toString());
-  }
-
-  /**
-   * @throws Exception in the event of a test error.
-   */
-  @Ignore("SplunkJmsMessageListenerConfigurationTest.testVerifyConfiguration method not yet implemented")
+  @Ignore("SplunkJmsConsumerSupportConfigurationTest.testVerifyConfiguration method not yet implemented")
   @Test
   public void testVerifyConfiguration() throws Exception {
-    throw new UnsupportedOperationException("SplunkJmsMessageListenerConfigurationTest.testVerifyConfiguration not yet implemented");
+    throw new UnsupportedOperationException("SplunkJmsConsumerSupportConfigurationTest.testVerifyConfiguration not yet implemented");
   }
 
 }

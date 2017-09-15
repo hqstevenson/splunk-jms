@@ -54,11 +54,9 @@ public class SplunkJmsMessageListenerTest {
     connectionFactory.setUserName("admin");
     connectionFactory.setPassword("admin");
 
-    instance = new SplunkJmsMessageListener();
+    instance = new SplunkJmsMessageListener(DESTINATION_NAME);
     instance.setConnectionFactory(connectionFactory);
     instance.setMessageEventBuilder(new JmsMessageEventBuilder());
-
-    instance.setDestinationName(DESTINATION_NAME);
 
     log.info("Starting message listener");
     instance.setSplunkClient(clientStub);
