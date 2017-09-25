@@ -15,13 +15,11 @@ import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
-
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import javax.jms.BytesMessage;
 import javax.jms.DeliveryMode;
 import javax.jms.Destination;
@@ -242,7 +240,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   }
 
   protected void extractMessageHeadersToMap(Message jmsMessage, Map<String, Object> targetMap) {
-    if (jmsMessage != null  && targetMap != null) {
+    if (jmsMessage != null && targetMap != null) {
       final String logMessageFormat = "Error Reading JMS Message Header '{}' - ignoring";
 
       if (includeJmsTimestamp) {
@@ -401,6 +399,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
   @Override
   public EventBuilder<Message> duplicate() {
+    log.trace("Duplicating JmsMessageEventBuilder");
+
     JmsMessageEventBuilder answer = new JmsMessageEventBuilder();
 
     answer.copyConfiguration(this);
@@ -416,6 +416,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
       String value = getHeaderOrPropertyValue(indexProperty);
       if (value != null && !value.isEmpty()) {
         answer = value;
+      } else {
+        answer = super.getIndexFieldValue();
       }
     } else {
       answer = super.getHostFieldValue();
@@ -432,6 +434,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
       String value = getHeaderOrPropertyValue(indexProperty);
       if (value != null && !value.isEmpty()) {
         answer = value;
+      } else {
+        answer = super.getIndexFieldValue();
       }
     } else {
       answer = super.getIndexFieldValue();
@@ -448,6 +452,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
       String value = getHeaderOrPropertyValue(sourceProperty);
       if (value != null && !value.isEmpty()) {
         answer = value;
+      } else {
+        answer = super.getSourceFieldValue();
       }
     } else {
       answer = super.getSourceFieldValue();
@@ -464,6 +470,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
       String value = getHeaderOrPropertyValue(sourcetypeProperty);
       if (value != null && !value.isEmpty()) {
         answer = value;
+      } else {
+        answer = super.getSourcetypeFieldValue();
       }
     } else {
       answer = super.getSourcetypeFieldValue();
@@ -480,6 +488,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
       String value = getHeaderOrPropertyValue(timestampProperty);
       if (value != null && !value.isEmpty()) {
         answer = value;
+      } else {
+        answer = super.getTimestampFieldValue();
       }
     } else {
       answer = super.getTimestampFieldValue();
@@ -577,10 +587,26 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
   @Override
   protected void copyConfiguration(EventBuilderSupport<Message> sourceEventBuilder) {
+    log.trace("copyConfiguration CamelJmsMessageEventBuilder");
+
     super.copyConfiguration(sourceEventBuilder);
 
     if (sourceEventBuilder instanceof JmsMessageEventBuilder) {
       JmsMessageEventBuilder sourceJmsMessageEventBuilder = (JmsMessageEventBuilder) sourceEventBuilder;
+
+      this.includeJmsDestination = sourceJmsMessageEventBuilder.includeJmsDestination;
+      this.includeJmsDeliveryMode = sourceJmsMessageEventBuilder.includeJmsDeliveryMode;
+      this.includeJmsExpiration = sourceJmsMessageEventBuilder.includeJmsExpiration;
+      this.includeJmsPriority = sourceJmsMessageEventBuilder.includeJmsPriority;
+      this.includeJmsMessageId = sourceJmsMessageEventBuilder.includeJmsMessageId;
+      this.includeJmsTimestamp = sourceJmsMessageEventBuilder.includeJmsTimestamp;
+      this.includeJmsCorrelationId = sourceJmsMessageEventBuilder.includeJmsCorrelationId;
+      this.includeJmsReplyTo = sourceJmsMessageEventBuilder.includeJmsReplyTo;
+      this.includeJmsType = sourceJmsMessageEventBuilder.includeJmsType;
+      this.includeJmsRedelivered = sourceJmsMessageEventBuilder.includeJmsRedelivered;
+
+      this.includeJmsProperties = sourceJmsMessageEventBuilder.includeJmsProperties;
+
       if (sourceJmsMessageEventBuilder.hasPropertyNameReplacements()) {
         this.setPropertyNameReplacements(sourceJmsMessageEventBuilder.propertyNameReplacements);
       }

@@ -65,7 +65,7 @@ public class SplunkJmsMessageListenerIT {
     builder.setSource("test-source");
     builder.setSourcetype("test-sourcetype");
 
-    instance.setMessageEventBuilder(builder);
+    instance.setSplunkEventBuilder(builder);
 
     httpecClient = new SimpleEventCollectorClient();
 

@@ -56,7 +56,7 @@ public class SplunkJmsMessageListenerTest {
 
     instance = new SplunkJmsMessageListener(DESTINATION_NAME);
     instance.setConnectionFactory(connectionFactory);
-    instance.setMessageEventBuilder(new JmsMessageEventBuilder());
+    instance.setSplunkEventBuilder(new JmsMessageEventBuilder());
 
     log.info("Starting message listener");
     instance.setSplunkClient(clientStub);

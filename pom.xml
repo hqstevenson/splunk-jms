@@ -15,15 +15,15 @@
   See the License for the specific language governing permissions and
   limitations under the License.
  -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jms</artifactId>
     <packaging>bundle</packaging>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>0.5.0</version>
 
     <name>Splunk JMS Support Classes</name>
 
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>com.pronoia.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>0.5.0-SNAPSHOT</version>
+            <version>0.5.0</version>
         </dependency>
 
         <dependency>
@@ -150,6 +150,10 @@
             <plugin>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.6</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.20.1</version>
             </plugin>
 
             <!-- other groupIds -->

@@ -31,8 +31,8 @@ import org.slf4j.LoggerFactory;
  * Receives JMS Messages from an ActiveMQ broker in the same JVM and delivers them to Splunk using the HTTP Event Collector.
  */
 public class SplunkJmsConsumerSupport {
-  final String destinationName;
-  final boolean useTopic;
+  String destinationName;
+  boolean useTopic;
 
   protected Logger log = LoggerFactory.getLogger(this.getClass());
 
@@ -44,14 +44,33 @@ public class SplunkJmsConsumerSupport {
   boolean connectionStarted = false;
 
 
-  EventBuilder<Message> messageEventBuilder;
+  EventBuilder<Message> splunkEventBuilder;
+
+  public SplunkJmsConsumerSupport() {
+  }
 
   public SplunkJmsConsumerSupport(String destinationName) {
-    this(destinationName, false);
+    this.destinationName = destinationName;
   }
 
   public SplunkJmsConsumerSupport(String destinationName, boolean useTopic) {
     this.destinationName = destinationName;
+    this.useTopic = useTopic;
+  }
+
+  public boolean hasDestinationName() {
+    return destinationName != null && !destinationName.isEmpty();
+  }
+
+  public String getDestinationName() {
+    return destinationName;
+  }
+
+  public void setDestinationName(String destinationName) {
+    this.destinationName = destinationName;
+  }
+
+  public void setUseTopic(boolean useTopic) {
     this.useTopic = useTopic;
   }
 
@@ -66,14 +85,6 @@ public class SplunkJmsConsumerSupport {
 
   public void setConnectionFactory(ConnectionFactory connectionFactory) {
     this.connectionFactory = connectionFactory;
-  }
-
-  public boolean hasDestinationName() {
-    return destinationName != null;
-  }
-
-  public String getDestinationName() {
-    return destinationName;
   }
 
   public boolean isConnectionStarted() {
@@ -101,15 +112,15 @@ public class SplunkJmsConsumerSupport {
   }
 
   public boolean hasMessageEventBuilder() {
-    return messageEventBuilder != null;
+    return splunkEventBuilder != null;
   }
 
-  public EventBuilder<Message> getMessageEventBuilder() {
-    return messageEventBuilder;
+  public EventBuilder<Message> getSplunkEventBuilder() {
+    return splunkEventBuilder;
   }
 
-  public void setMessageEventBuilder(EventBuilder<Message> messageEventBuilder) {
-    this.messageEventBuilder = messageEventBuilder;
+  public void setSplunkEventBuilder(EventBuilder<Message> splunkEventBuilder) {
+    this.splunkEventBuilder = splunkEventBuilder;
   }
 
   public void verifyConfiguration() {
@@ -127,8 +138,27 @@ public class SplunkJmsConsumerSupport {
 
     if (!hasMessageEventBuilder()) {
       log.info("A Splunk event builder was not specified - the default event builder will be used");
-      messageEventBuilder = new JmsMessageEventBuilder();
+      splunkEventBuilder = new JmsMessageEventBuilder();
     }
+  }
+
+  protected boolean createConnection(boolean throwException) {
+    log.debug("Establishing connection for {}", destinationName);
+
+    try {
+      log.trace("Creating JMS Connection for {}", destinationName);
+      connection = connectionFactory.createConnection();
+      return true;
+    } catch (JMSException jmsEx) {
+      cleanup(false);
+      String errorMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
+      if (throwException) {
+        throw new IllegalStateException(errorMessage, jmsEx);
+      }
+      log.info(errorMessage, jmsEx);
+    }
+
+    return false;
   }
 
   /**
@@ -137,18 +167,6 @@ public class SplunkJmsConsumerSupport {
    * TODO:  Fixup error handling
    */
   protected void createConsumer() {
-    log.info("Establishing connection for {}", destinationName);
-
-    try {
-      log.trace("Creating JMS Connection for {}", destinationName);
-      connection = connectionFactory.createConnection();
-    } catch (JMSException jmsEx) {
-      cleanup(false);
-      String errorMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
-      log.error(errorMessage, jmsEx);
-      throw new IllegalStateException(errorMessage, jmsEx);
-    }
-
     try {
       // This will throw a JMSSecurityException when the user or password is invalid
       log.trace("Creating JMS Session for {}", destinationName);
@@ -183,14 +201,14 @@ public class SplunkJmsConsumerSupport {
       throw new IllegalStateException(errorMessage, jmsEx);
     }
 
-    log.info("Connection for {} started", destinationName);
+    log.debug("Connection for {} started", destinationName);
   }
 
   /**
    * Stop the JMS QueueReceiver.
    */
   protected void stopConnection() {
-    log.info("Stopping Connection for {}", destinationName);
+    log.debug("Stopping Connection for {}", destinationName);
     this.cleanup(true);
   }
 
@@ -211,7 +229,7 @@ public class SplunkJmsConsumerSupport {
           log.warn("Failed to retrieve value of JMSMessageID and JMSTimestamp for sendMessageToSplunk received log entry");
         }
       }
-      String eventBody = messageEventBuilder.eventBody(message).build();
+      String eventBody = splunkEventBuilder.eventBody(message).build();
 
       try {
         splunkClient.sendEvent(eventBody);

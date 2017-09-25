@@ -21,6 +21,10 @@ import javax.jms.MessageListener;
  * Collector.
  */
 public class SplunkJmsMessageListener extends SplunkJmsConsumerSupport implements MessageListener, ExceptionListener {
+
+  public SplunkJmsMessageListener() {
+  }
+
   public SplunkJmsMessageListener(String destinationName) {
     this(destinationName, false);
   }
@@ -38,37 +42,38 @@ public class SplunkJmsMessageListener extends SplunkJmsConsumerSupport implement
     log.info("Starting MessageListener for {}", destinationName);
     verifyConfiguration();
 
-    createConsumer();
+      createConnection(true);
+      createConsumer();
 
-    try {
-      log.trace("Registering the MessageListener for Consumer for {}", destinationName);
-      consumer.setMessageListener(this);
-    } catch (JMSException jmsEx) {
-      cleanup(false);
-      String errorMessage = String.format("Exception encountered registering JMS MessageListener {destinationName name ='%s'}", destinationName);
-      log.error(errorMessage, jmsEx);
-      throw new IllegalStateException(errorMessage, jmsEx);
-    }
+      try {
+        log.trace("Registering the MessageListener for Consumer for {}", destinationName);
+        consumer.setMessageListener(this);
+      } catch (JMSException jmsEx) {
+        cleanup(false);
+        String errorMessage = String.format("Exception encountered registering JMS MessageListener {destinationName name ='%s'}", destinationName);
+        log.error(errorMessage, jmsEx);
+        throw new IllegalStateException(errorMessage, jmsEx);
+      }
 
-    try {
-      // This will throw a JMSException with a ConnectException cause when the connection cannot be made to a TCP URL
-      log.trace("Registering the JMS ExceptionListener for {}", destinationName);
-      connection.setExceptionListener(this);
-    } catch (JMSException jmsEx) {
-      cleanup(false);
-      String errorMessage = String.format("Exception encountered registering the exception listener {destinationName name ='%s'}", destinationName);
-      log.error(errorMessage, jmsEx);
-      throw new IllegalStateException(errorMessage, jmsEx);
-    } catch (Throwable unexpectedEx) {
-      cleanup(false);
-      String errorMessage = String.format("Exception encountered registering the exception listener  {destinationName name ='%s'}", destinationName);
-      log.error(errorMessage, unexpectedEx);
-      throw new IllegalStateException(errorMessage, unexpectedEx);
-    }
+      try {
+        // This will throw a JMSException with a ConnectException cause when the connection cannot be made to a TCP URL
+        log.trace("Registering the JMS ExceptionListener for {}", destinationName);
+        connection.setExceptionListener(this);
+      } catch (JMSException jmsEx) {
+        cleanup(false);
+        String errorMessage = String.format("Exception encountered registering the exception listener {destinationName name ='%s'}", destinationName);
+        log.error(errorMessage, jmsEx);
+        throw new IllegalStateException(errorMessage, jmsEx);
+      } catch (Throwable unexpectedEx) {
+        cleanup(false);
+        String errorMessage = String.format("Exception encountered registering the exception listener  {destinationName name ='%s'}", destinationName);
+        log.error(errorMessage, unexpectedEx);
+        throw new IllegalStateException(errorMessage, unexpectedEx);
+      }
 
-    startConnection();
+      startConnection();
 
-    log.info("MessageListener for {} started", destinationName);
+      log.info("MessageListener for {} started", destinationName);
   }
 
   public void stop() {

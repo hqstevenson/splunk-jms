@@ -22,7 +22,6 @@ import static com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert.assertMess
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageConsumer;
-import com.pronoia.splunk.jms.SplunkJmsMessageListener;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
@@ -66,7 +65,7 @@ public class SplunkJmsMessageConsumerIT {
     builder.setSource("test-source");
     builder.setSourcetype("test-sourcetype");
 
-    instance.setMessageEventBuilder(builder);
+    instance.setSplunkEventBuilder(builder);
 
     httpecClient = new SimpleEventCollectorClient();
 

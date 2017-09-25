@@ -18,14 +18,11 @@
 package com.pronoia.splunk.jms;
 
 import com.pronoia.splunk.jms.internal.NamedThreadFactory;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.management.ObjectName;
 
 /**
  * Receives JMS Messages from an ActiveMQ broker in the same JVM and delivers them to Splunk using the HTTP Event
@@ -44,6 +41,9 @@ public class SplunkJmsMessageConsumer extends SplunkJmsConsumerSupport implement
    */
   ScheduledExecutorService scheduledExecutorService;
   boolean scheduled = false;
+
+  public SplunkJmsMessageConsumer() {
+  }
 
   public SplunkJmsMessageConsumer(String destinationName) {
     super(destinationName, false);
@@ -101,43 +101,46 @@ public class SplunkJmsMessageConsumer extends SplunkJmsConsumerSupport implement
    * Read JMS Messages.
    */
   public void run() {
-    log.info("Entering message processing loop for consumer {}", destinationName);
+    log.debug("Entering message processing loop for consumer {}", destinationName);
 
     if (scheduled) {
+      if (false == createConnection(false)) {
+        return;
+      }
       try {
-        createConsumer();
-        startConnection();
+          createConsumer();
+          startConnection();
 
-        while (scheduled && isConnectionStarted()) {
-          try {
-            Message message = consumer.receive(receiveTimeoutMillis);
-            if (message != null) {
-              sendMessageToSplunk(message);
-            }
-          } catch (JMSException jmsEx) {
-            Throwable cause = jmsEx.getCause();
-            if (cause != null && cause instanceof InterruptedException) {
-              // If we're still supposed to be scheduled, re-throw the exception; otherwise just log it
-              if (scheduled) {
-                throw jmsEx;
-              } else {
-                cleanup(false);
-                if (log.isDebugEnabled()) {
-                  String debugMessage = String.format("Consumer.receive(%d) call interrupted in processing loop for %s - stopping consumer", receiveTimeoutMillis, destinationName);
-                  log.debug(debugMessage, jmsEx);
+          while (scheduled && isConnectionStarted()) {
+            try {
+              Message message = consumer.receive(receiveTimeoutMillis);
+              if (message != null) {
+                sendMessageToSplunk(message);
+              }
+            } catch (JMSException jmsEx) {
+              Throwable cause = jmsEx.getCause();
+              if (cause != null && cause instanceof InterruptedException) {
+                // If we're still supposed to be scheduled, re-throw the exception; otherwise just log it
+                if (scheduled) {
+                  throw jmsEx;
+                } else {
+                  cleanup(false);
+                  if (log.isDebugEnabled()) {
+                    String debugMessage = String.format("Consumer.receive(%d) call interrupted in processing loop for %s - stopping consumer", receiveTimeoutMillis, destinationName);
+                    log.debug(debugMessage, jmsEx);
+                  }
                 }
               }
             }
           }
-        }
       } catch (Exception ex) {
         cleanup(false);
         if (scheduled) {
           String warningMessage = String.format("Exception encountered in processing loop for %s - restart will be attempted in %d seconds", destinationName, delaySeconds);
-          log.warn(warningMessage, ex);
+          log.info(warningMessage, ex);
         } else {
           String infoMessage = String.format("Exception encountered in processing loop for %s - stopping consumer", destinationName);
-          log.info(infoMessage, ex);
+          log.warn(infoMessage, ex);
         }
       } finally {
         log.info("JMS consumer for {} stopped", destinationName);
