@@ -161,6 +161,30 @@ public class SplunkJmsConsumerSupport {
     return false;
   }
 
+  public boolean hasConnection() {
+    return connection != null;
+  }
+
+  public boolean hasSession() {
+    return session != null;
+  }
+
+  public boolean hasConsumer() {
+    return consumer != null;
+  }
+
+  protected Connection getConnection() {
+    return connection;
+  }
+
+  protected Session getSession() {
+    return session;
+  }
+
+  protected MessageConsumer getConsumer() {
+    return consumer;
+  }
+
   /**
    * Connect to the broker and create the JMS Consumer.
    *

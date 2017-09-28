@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jms</artifactId>
     <packaging>bundle</packaging>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 
     <name>Splunk JMS Support Classes</name>
 
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>com.pronoia.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>0.5.0</version>
+            <version>0.5.1</version>
         </dependency>
 
         <dependency>
@@ -170,5 +170,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
