@@ -496,8 +496,8 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   @Override
   protected void addAdditionalFieldsToMap(Map<String, Object> map) {
     if (hasEventBody()) {
-      extractMessageHeadersToMap(getEventBody(), getFields());
-      extractMessagePropertiesToMap(getEventBody(), getFields());
+      extractMessageHeadersToMap(getEventBody(), map);
+      extractMessagePropertiesToMap(getEventBody(), map);
     }
 
     super.addAdditionalFieldsToMap(map);
