@@ -15,11 +15,13 @@ import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
+
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import javax.jms.BytesMessage;
 import javax.jms.DeliveryMode;
 import javax.jms.Destination;
@@ -57,9 +59,9 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
   String hostProperty;
   String indexProperty;
-  String sourceProperty = "JMSDestination";
+  String sourceProperty;
   String sourcetypeProperty;
-  String timestampProperty = "JMSTimestamp";
+  String timestampProperty;
 
   Map<String, String> propertyNameReplacements;
 
@@ -412,14 +414,11 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   public String getHostFieldValue() {
     String answer = null;
 
-    if (hasHostProperty()) {
-      String value = getHeaderOrPropertyValue(indexProperty);
-      if (value != null && !value.isEmpty()) {
-        answer = value;
-      } else {
-        answer = super.getIndexFieldValue();
-      }
-    } else {
+    if (!hasHost() && hasHostProperty()) {
+      answer = getHeaderOrPropertyValue(hostProperty);
+    }
+
+    if (answer == null || answer.isEmpty()) {
       answer = super.getHostFieldValue();
     }
 
@@ -430,14 +429,11 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   public String getIndexFieldValue() {
     String answer = null;
 
-    if (hasIndexProperty()) {
-      String value = getHeaderOrPropertyValue(indexProperty);
-      if (value != null && !value.isEmpty()) {
-        answer = value;
-      } else {
-        answer = super.getIndexFieldValue();
-      }
-    } else {
+    if (!hasIndex() && hasIndexProperty()) {
+      answer = getHeaderOrPropertyValue(indexProperty);
+    }
+
+    if (answer == null || answer.isEmpty()) {
       answer = super.getIndexFieldValue();
     }
 
@@ -448,14 +444,15 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   public String getSourceFieldValue() {
     String answer = null;
 
-    if (hasSourceProperty()) {
-      String value = getHeaderOrPropertyValue(sourceProperty);
-      if (value != null && !value.isEmpty()) {
-        answer = value;
+    if (!hasSource()) {
+      if (hasSourceProperty()) {
+        answer = getHeaderOrPropertyValue(sourceProperty);
       } else {
-        answer = super.getSourceFieldValue();
+        answer = getHeaderOrPropertyValue("JMSDestination");
       }
-    } else {
+    }
+
+    if (answer == null || answer.isEmpty()) {
       answer = super.getSourceFieldValue();
     }
 
@@ -466,14 +463,11 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   public String getSourcetypeFieldValue() {
     String answer = null;
 
-    if (hasSourcetypeProperty()) {
-      String value = getHeaderOrPropertyValue(sourcetypeProperty);
-      if (value != null && !value.isEmpty()) {
-        answer = value;
-      } else {
-        answer = super.getSourcetypeFieldValue();
-      }
-    } else {
+    if (!hasSourcetype() && hasSourcetypeProperty()) {
+      answer = getHeaderOrPropertyValue(sourcetypeProperty);
+    }
+
+    if (answer == null || answer.isEmpty()) {
       answer = super.getSourcetypeFieldValue();
     }
 
@@ -484,14 +478,15 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
   public String getTimestampFieldValue() {
     String answer = null;
 
-    if (hasTimestampProperty()) {
-      String value = getHeaderOrPropertyValue(timestampProperty);
-      if (value != null && !value.isEmpty()) {
-        answer = value;
+    if (!hasTimestamp()) {
+      if (hasTimestampProperty()) {
+        answer = getHeaderOrPropertyValue(timestampProperty);
       } else {
-        answer = super.getTimestampFieldValue();
+        answer = getHeaderOrPropertyValue("JMSTimestamp");
       }
-    } else {
+    }
+
+    if (answer == null || answer.isEmpty()) {
       answer = super.getTimestampFieldValue();
     }
 
