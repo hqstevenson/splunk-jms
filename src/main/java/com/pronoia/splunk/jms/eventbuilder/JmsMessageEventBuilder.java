@@ -511,11 +511,14 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         TextMessage textMessage = (TextMessage) jmsMessage;
         try {
           String textBody = textMessage.getText();
-          if (textBody != null) {
+          if (textBody != null && !textBody.isEmpty()) {
             map.put(EventCollectorInfo.EVENT_BODY_KEY, textBody);
+          } else {
+            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty TextMessage");
           }
         } catch (JMSException getTextEx) {
           log.warn("Exception encountered reading text from TextMessage - skipping JMS Message body", getTextEx);
+          map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading text from TextMessage: " + getTextEx.getMessage());
         }
       } else if (jmsMessage instanceof BytesMessage) {
         BytesMessage bytesMessage = (BytesMessage) jmsMessage;
@@ -530,52 +533,69 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
               map.put(EventCollectorInfo.EVENT_BODY_KEY, eventBody);
             } catch (JMSException readBytesEx) {
               log.warn("Exception encountered reading byte[] from BytesMessage - skipping JMS Message body", readBytesEx);
+              map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading byte[] from BytesMessage: " + readBytesEx.getMessage());
             }
+          } else {
+            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty BytesMessage");
           }
         } catch (JMSException getBodyLengthEx) {
           log.warn("Exception encountered getting byte[] length from BytesMessage - skipping JMS Message body", getBodyLengthEx);
+          map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered getting byte[] length from BytesMessage: " + getBodyLengthEx.getMessage());
         }
       } else if (jmsMessage instanceof MapMessage) {
         MapMessage mapMessage = (MapMessage) jmsMessage;
-        if (mapMessage != null) {
-          try {
-            Enumeration<String> keys = mapMessage.getMapNames();
-            if (keys != null) {
-              Map<String, Object> mapMessageBody = new LinkedHashMap<>();
-              while (keys.hasMoreElements()) {
-                String key = keys.nextElement();
-                try {
-                  String value = mapMessage.getString(key);
-                  if (value != null) {
-                    mapMessageBody.put(key, value);
-                  }
-                } catch (JMSException getStringPropertyEx) {
-                  String logMessage = String.format("Exception encountered retrieving value for key '%s' from MapMessage - ignoring", key);
-                  log.warn(logMessage, getStringPropertyEx);
+        try {
+          Enumeration<String> keys = mapMessage.getMapNames();
+          if (keys != null && keys.hasMoreElements()) {
+            Map<String, Object> mapMessageBody = new LinkedHashMap<>();
+            while (keys.hasMoreElements()) {
+              String key = keys.nextElement();
+              try {
+                String value = mapMessage.getString(key);
+                if (value != null) {
+                  mapMessageBody.put(key, value);
                 }
+              } catch (JMSException getStringPropertyEx) {
+                log.warn("Exception encountered retrieving value for key '{}' from MapMessage - ignoring", key, getStringPropertyEx);
               }
-              map.put(EventCollectorInfo.EVENT_BODY_KEY, mapMessageBody);
             }
-          } catch (JMSException getMapNamesEx) {
-            log.warn("Exception encountered retrieving keys from MapMessage - ignoring", getMapNamesEx);
+            if (mapMessageBody != null && !mapMessageBody.isEmpty()) {
+              map.put(EventCollectorInfo.EVENT_BODY_KEY, mapMessageBody);
+            } else {
+              map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty MapMessage");
+            }
+          } else {
+            log.warn("Empty or null Enumeration returned by MapMessage.getMapNames()");
+            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty or null Enumeration returned by MapMessage.getMapNames()");
           }
+        } catch (JMSException getMapNamesEx) {
+          log.warn("Exception encountered retrieving keys from MapMessage - ignoring", getMapNamesEx);
+          map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered retrieving keys from MapMessage: " + getMapNamesEx.getMessage());
         }
       } else if (jmsMessage instanceof ObjectMessage) {
         ObjectMessage objectMessage = (ObjectMessage) jmsMessage;
         try {
           Serializable objectBody = objectMessage.getObject();
           if (objectBody != null) {
-            map.put(EventCollectorInfo.EVENT_BODY_KEY, objectBody.toString());
+            String objectBodyString = objectBody.toString();
+            if (!objectBodyString.isEmpty()) {
+              map.put(EventCollectorInfo.EVENT_BODY_KEY, objectBodyString);
+            } else {
+              map.put(EventCollectorInfo.EVENT_BODY_KEY, "null Object from ObjectMessage.getObject");
+            }
+          } else {
+            map.put(EventCollectorInfo.EVENT_BODY_KEY, "null ObjectMessage");
           }
         } catch (JMSException getObjectEx) {
           log.warn("Exception encountered reading Object from ObjectMessage - skipping JMS Message body", getObjectEx);
+          map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading Object from ObjectMessage: " + getObjectEx.getMessage());
         }
       } else if (jmsMessage instanceof StreamMessage) {
         log.warn("Unsupported JMS Message type: {}", jmsMessage.getClass().getName());
-        map.put(EventCollectorInfo.EVENT_BODY_KEY, jmsMessage.toString());
+        map.put(EventCollectorInfo.EVENT_BODY_KEY, "StreamMessage: " + jmsMessage.toString());
       } else {
         log.warn("Unknown JMS Message type: {}", jmsMessage.getClass().getName());
-        map.put(EventCollectorInfo.EVENT_BODY_KEY, jmsMessage.toString());
+        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Unknown JMS Message type: " + jmsMessage.getClass().getName() + "\n" + jmsMessage.toString());
       }
     }
   }
