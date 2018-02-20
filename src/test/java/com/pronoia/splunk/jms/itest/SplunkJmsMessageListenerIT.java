@@ -1,12 +1,12 @@
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,21 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.pronoia.splunk.jms.itest;
 
-import static com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert.assertMessageCount;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
+import com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert;
+
 import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
 import com.pronoia.splunk.jms.SplunkJmsMessageListener;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,75 +38,75 @@ import org.slf4j.LoggerFactory;
  * Tests for the  class.
  */
 public class SplunkJmsMessageListenerIT {
-  static final String DESTINATION_NAME = "audit.in";
+    static final String DESTINATION_NAME = "audit.in";
 
-  @Rule
-  public EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
+    @Rule
+    public EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
 
-  Logger log = LoggerFactory.getLogger(this.getClass());
+    Logger log = LoggerFactory.getLogger(this.getClass());
 
-  SimpleEventCollectorClient httpecClient = new SimpleEventCollectorClient();
+    SimpleEventCollectorClient httpecClient = new SimpleEventCollectorClient();
 
-  SplunkJmsMessageListener instance;
+    SplunkJmsMessageListener instance;
 
-  @Before
-  public void setUp() throws Exception {
-    String brokerURL = String.format("vm://%s?create=false&waitForStart=5000", broker.getBrokerName());
+    @Before
+    public void setUp() throws Exception {
+        String brokerURL = String.format("vm://%s?create=false&waitForStart=5000", broker.getBrokerName());
 
-    instance = new SplunkJmsMessageListener(DESTINATION_NAME);
-    ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
+        instance = new SplunkJmsMessageListener(DESTINATION_NAME);
+        ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
 
-    connectionFactory.setBrokerURL(brokerURL);
-    connectionFactory.setUserName("admin");
-    connectionFactory.setPassword("admin");
-    instance.setConnectionFactory(connectionFactory);
+        connectionFactory.setBrokerURL(brokerURL);
+        connectionFactory.setUserName("admin");
+        connectionFactory.setPassword("admin");
+        instance.setConnectionFactory(connectionFactory);
 
-    JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+        JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
 
-    builder.setIndex("fuse-dev");
-    builder.setSource("test-source");
-    builder.setSourcetype("test-sourcetype");
+        builder.setIndex("fuse-dev");
+        builder.setSource("test-source");
+        builder.setSourcetype("test-sourcetype");
 
-    instance.setSplunkEventBuilder(builder);
+        instance.setSplunkEventBuilder(builder);
 
-    httpecClient = new SimpleEventCollectorClient();
+        httpecClient = new SimpleEventCollectorClient();
 
-    // Local Settings
-    httpecClient.setHost("localhost");
-    httpecClient.setPort(8088);
-    httpecClient.setAuthorizationToken("5DA702AD-D855-4679-9CDE-A398494BE854");
-    httpecClient.disableCertificateValidation();
+        // Local Settings
+        httpecClient.setHost("localhost");
+        httpecClient.setPort(8088);
+        httpecClient.setAuthorizationToken("5DA702AD-D855-4679-9CDE-A398494BE854");
+        httpecClient.disableCertificateValidation();
 
-    // UCLA Settings
-    // httpecClient.setHost("lstsplkap19");
-    // httpecClient.setPort(8088);
-    // httpecClient.setAuthorizationToken("902ADE3D-2895-47F0-ABE6-4981DB2ABE9C");
-    // httpecClient.disableCertificateValidation();
+        // UCLA Settings
+        // httpecClient.setHost("lstsplkap19");
+        // httpecClient.setPort(8088);
+        // httpecClient.setAuthorizationToken("902ADE3D-2895-47F0-ABE6-4981DB2ABE9C");
+        // httpecClient.disableCertificateValidation();
 
-    log.info("Starting message listener");
-    instance.setSplunkClient(httpecClient);
+        log.info("Starting message listener");
+        instance.setSplunkClient(httpecClient);
 
-    instance.start();
-  }
+        instance.start();
+    }
 
-  @After
-  public void tearDown() throws Exception {
-    log.info("Stopping message listener");
-    instance.stop();
-  }
+    @After
+    public void tearDown() throws Exception {
+        log.info("Stopping message listener");
+        instance.stop();
+    }
 
-  /**
-   * Description of test.
-   *
-   * @throws Exception in the event of a test error.
-   */
-  @Test
-  public void testOnMessage() throws Exception {
-    broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE");
+    /**
+     * Description of test.
+     *
+     * @throws Exception in the event of a test error.
+     */
+    @Test
+    public void testOnMessage() throws Exception {
+        broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE");
 
-    Thread.sleep(15000);
+        Thread.sleep(15000);
 
-    assertMessageCount(broker, DESTINATION_NAME, 0);
-  }
+        EmbeddedBrokerAssert.assertMessageCount(broker, DESTINATION_NAME, 0);
+    }
 
 }
