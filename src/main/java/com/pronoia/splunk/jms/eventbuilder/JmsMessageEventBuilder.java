@@ -17,7 +17,6 @@
 package com.pronoia.splunk.jms.eventbuilder;
 
 import java.io.Serializable;
-
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -35,20 +34,22 @@ import javax.jms.TextMessage;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
 
+
 public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> {
-    public static final String JMS_DESTINATION_FIELD = "JMSDestination";
-    public static final String JMS_DELIVERY_MODE_FIELD = "JMSDeliveryMode";
-    public static final String JMS_EXPIRATION_FIELD = "JMSExpiration";
-    public static final String JMS_PRIORITY_FIELD = "JMSPriority";
-    public static final String JMS_MESSAGE_ID_FIELD = "JMSMessageID";
-    public static final String JMS_TIMESTAMP_FIELD = "JMSTimestamp";
-    public static final String JMS_CORRELATION_ID_FIELD = "JMSCorrelationID";
-    public static final String JMS_REPLY_TO_FIELD = "JMSReplyTo";
-    public static final String JMS_TYPE_FIELD = "JMSType";
-    public static final String JMS_REDELIVERED_FIELD = "JMSRedelivered";
+    public static final String JMS_DESTINATION = "JMSDestination";
+    public static final String JMS_DELIVERY_MODE = "JMSDeliveryMode";
+    public static final String JMS_EXPIRATION = "JMSExpiration";
+    public static final String JMS_PRIORITY = "JMSPriority";
+    public static final String JMS_MESSAGE_ID = "JMSMessageID";
+    public static final String JMS_TIMESTAMP = "JMSTimestamp";
+    public static final String JMS_CORRELATION_ID = "JMSCorrelationID";
+    public static final String JMS_REPLY_TO = "JMSReplyTo";
+    public static final String JMS_TYPE = "JMSType";
+    public static final String JMS_REDELIVERED = "JMSRedelivered";
 
     boolean includeJmsDestination = true;
     boolean includeJmsDeliveryMode = true;
@@ -227,6 +228,11 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         return propertyNameReplacements;
     }
 
+    /**
+     * Set the list of property name fragments and their replacements.
+     *
+     * @param propertyNameReplacements map of JMS Property name fragments and their associated replacements.
+     */
     public void setPropertyNameReplacements(Map<String, String> propertyNameReplacements) {
         if (propertyNameReplacements != null && !propertyNameReplacements.isEmpty()) {
             if (this.propertyNameReplacements == null) {
@@ -238,8 +244,15 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         }
     }
 
+    /**
+     * Set a property name fragment and its replacement.
+     *
+     * @param propertyNameFragment the property name fragment.
+     * @param propertyNameFragmentReplacement the replacement for the property name fragment.
+     */
     public void setPropertyNameReplacement(String propertyNameFragment, String propertyNameFragmentReplacement) {
-        if (propertyNameFragment != null && !propertyNameFragment.isEmpty() && propertyNameFragmentReplacement != null && !propertyNameFragmentReplacement.isEmpty()) {
+        if (propertyNameFragment != null && !propertyNameFragment.isEmpty()
+                && propertyNameFragmentReplacement != null && !propertyNameFragmentReplacement.isEmpty()) {
             if (this.propertyNameReplacements == null) {
                 this.propertyNameReplacements = new HashMap<>();
             }
@@ -251,133 +264,135 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         if (jmsMessage != null && targetMap != null) {
             final String logMessageFormat = "Error Reading JMS Message Header '{}' - ignoring";
 
-            if (includeJmsTimestamp) {
-                try {
-                    // JMSTimestamp is a little special - we use it for the Event timestamp as well as a field
-                    long jmsTimestamp = jmsMessage.getJMSTimestamp();
-                    if (jmsTimestamp > 0) {
-                        targetMap.put(JMS_TIMESTAMP_FIELD, String.valueOf(jmsTimestamp));
+            try (SplunkMDCHelper helper = createMdcHelper()) {
+                if (includeJmsTimestamp) {
+                    try {
+                        // JMSTimestamp is a little special - we use it for the Event timestamp as well as a field
+                        long jmsTimestamp = jmsMessage.getJMSTimestamp();
+                        if (jmsTimestamp > 0) {
+                            targetMap.put(JMS_TIMESTAMP, String.valueOf(jmsTimestamp));
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_TIMESTAMP);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_TIMESTAMP_FIELD);
                 }
-            }
 
-            if (includeJmsDestination) {
-                try {
-                    // JMSDestination is a little special - we use it for the source as well as a field
-                    Destination jmsDestination = jmsMessage.getJMSDestination();
-                    if (jmsDestination != null) {
-                        String destinationString = jmsDestination.toString();
-                        targetMap.put(JMS_DESTINATION_FIELD, destinationString);
+                if (includeJmsDestination) {
+                    try {
+                        // JMSDestination is a little special - we use it for the source as well as a field
+                        Destination jmsDestination = jmsMessage.getJMSDestination();
+                        if (jmsDestination != null) {
+                            String destinationString = jmsDestination.toString();
+                            targetMap.put(JMS_DESTINATION, destinationString);
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_DESTINATION);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_DESTINATION_FIELD);
                 }
-            }
 
-            if (includeJmsDeliveryMode) {
-                try {
-                    int jmsDeliveryMode = jmsMessage.getJMSDeliveryMode();
-                    switch (jmsDeliveryMode) {
-                    case DeliveryMode.NON_PERSISTENT:
-                        targetMap.put(JMS_DELIVERY_MODE_FIELD, "NON_PERSISTENT");
-                        break;
-                    case DeliveryMode.PERSISTENT:
-                        targetMap.put(JMS_DELIVERY_MODE_FIELD, "PERSISTENT");
-                        break;
-                    default:
-                        // No-op
-                        break;
+                if (includeJmsDeliveryMode) {
+                    try {
+                        int jmsDeliveryMode = jmsMessage.getJMSDeliveryMode();
+                        switch (jmsDeliveryMode) {
+                            case DeliveryMode.NON_PERSISTENT:
+                                targetMap.put(JMS_DELIVERY_MODE, "NON_PERSISTENT");
+                                break;
+                            case DeliveryMode.PERSISTENT:
+                                targetMap.put(JMS_DELIVERY_MODE, "PERSISTENT");
+                                break;
+                            default:
+                                // No-op
+                                break;
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_DELIVERY_MODE);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_DELIVERY_MODE_FIELD);
                 }
-            }
 
-            if (includeJmsExpiration) {
-                try {
-                    long jmsExpiration = jmsMessage.getJMSExpiration();
-                    if (jmsExpiration > 0) {
-                        targetMap.put(JMS_EXPIRATION_FIELD, String.valueOf(jmsExpiration));
+                if (includeJmsExpiration) {
+                    try {
+                        long jmsExpiration = jmsMessage.getJMSExpiration();
+                        if (jmsExpiration > 0) {
+                            targetMap.put(JMS_EXPIRATION, String.valueOf(jmsExpiration));
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_EXPIRATION);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_EXPIRATION_FIELD);
                 }
-            }
 
-            if (includeJmsPriority) {
-                try {
-                    int jmsPriority = jmsMessage.getJMSPriority();
-                    if (jmsPriority > 0 && jmsPriority < 10) {
-                        targetMap.put(JMS_PRIORITY_FIELD, String.valueOf(jmsPriority));
+                if (includeJmsPriority) {
+                    try {
+                        int jmsPriority = jmsMessage.getJMSPriority();
+                        if (jmsPriority > 0 && jmsPriority < 10) {
+                            targetMap.put(JMS_PRIORITY, String.valueOf(jmsPriority));
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_PRIORITY);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_PRIORITY_FIELD);
                 }
-            }
 
-            if (includeJmsMessageId) {
-                try {
-                    String jmsMessageID = jmsMessage.getJMSMessageID();
-                    if (jmsMessageID != null && !jmsMessageID.isEmpty()) {
-                        targetMap.put(JMS_MESSAGE_ID_FIELD, jmsMessageID);
+                if (includeJmsMessageId) {
+                    try {
+                        String jmsMessageID = jmsMessage.getJMSMessageID();
+                        if (jmsMessageID != null && !jmsMessageID.isEmpty()) {
+                            targetMap.put(JMS_MESSAGE_ID, jmsMessageID);
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_MESSAGE_ID);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_MESSAGE_ID_FIELD);
                 }
-            }
 
-            if (includeJmsCorrelationId) {
-                try {
-                    String jmsCorrelationID = jmsMessage.getJMSCorrelationID();
-                    if (jmsCorrelationID != null && !jmsCorrelationID.isEmpty()) {
-                        targetMap.put(JMS_CORRELATION_ID_FIELD, jmsCorrelationID);
+                if (includeJmsCorrelationId) {
+                    try {
+                        String jmsCorrelationID = jmsMessage.getJMSCorrelationID();
+                        if (jmsCorrelationID != null && !jmsCorrelationID.isEmpty()) {
+                            targetMap.put(JMS_CORRELATION_ID, jmsCorrelationID);
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_CORRELATION_ID);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_CORRELATION_ID_FIELD);
                 }
-            }
 
-            if (includeJmsReplyTo) {
-                try {
-                    Destination jmsReplyTo = jmsMessage.getJMSReplyTo();
-                    if (jmsReplyTo != null) {
-                        targetMap.put(JMS_REPLY_TO_FIELD, jmsReplyTo.toString());
+                if (includeJmsReplyTo) {
+                    try {
+                        Destination jmsReplyTo = jmsMessage.getJMSReplyTo();
+                        if (jmsReplyTo != null) {
+                            targetMap.put(JMS_REPLY_TO, jmsReplyTo.toString());
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_REPLY_TO);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_REPLY_TO_FIELD);
                 }
-            }
 
-            if (includeJmsType) {
-                try {
-                    String jmsType = jmsMessage.getJMSType();
-                    if (jmsType != null && !jmsType.isEmpty()) {
-                        targetMap.put(JMS_TYPE_FIELD, jmsType);
-                    } else {
-                        targetMap.put(JMS_TYPE_FIELD, jmsMessage.getClass().getName());
+                if (includeJmsType) {
+                    try {
+                        String jmsType = jmsMessage.getJMSType();
+                        if (jmsType != null && !jmsType.isEmpty()) {
+                            targetMap.put(JMS_TYPE, jmsType);
+                        } else {
+                            targetMap.put(JMS_TYPE, jmsMessage.getClass().getName());
+                        }
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_TYPE);
                     }
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_TYPE_FIELD);
                 }
-            }
 
-            if (includeJmsRedelivered) {
-                try {
-                    boolean jmsRedelivered = jmsMessage.getJMSRedelivered();
-                    targetMap.put(JMS_REDELIVERED_FIELD, String.valueOf(jmsRedelivered));
-                } catch (JMSException jmsHeaderEx) {
-                    log.warn(logMessageFormat, JMS_REDELIVERED_FIELD);
+                if (includeJmsRedelivered) {
+                    try {
+                        boolean jmsRedelivered = jmsMessage.getJMSRedelivered();
+                        targetMap.put(JMS_REDELIVERED, String.valueOf(jmsRedelivered));
+                    } catch (JMSException jmsHeaderEx) {
+                        log.warn(logMessageFormat, JMS_REDELIVERED);
+                    }
                 }
-            }
 
+            }
         }
     }
 
     protected void extractMessagePropertiesToMap(Message jmsMessage, Map<String, Object> targetMap) {
         if (jmsMessage != null && targetMap != null) {
-            try {
+            try (SplunkMDCHelper helper = createMdcHelper()) {
                 Enumeration<String> propertyNames = jmsMessage.getPropertyNames();
                 if (propertyNames != null) {
                     while (propertyNames.hasMoreElements()) {
@@ -396,14 +411,12 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
                                 }
                             }
                         } catch (JMSException getObjectPropertyEx) {
-                            String logMessage = String.format("Exception encountered getting property value for property name '{}' - ignoring", propertyName);
-                            log.warn(logMessage, getObjectPropertyEx);
+                            log.warn("Exception encountered getting property value for property name '{}' - ignoring", propertyName, getObjectPropertyEx);
                         }
                     }
                 }
             } catch (JMSException getPropertyNamesEx) {
-                String logMessage = String.format("Exception encountered getting property names - ignoring");
-                log.warn(logMessage, getPropertyNamesEx);
+                log.warn("Exception encountered getting property names - ignoring", getPropertyNamesEx);
             }
         }
     }
@@ -514,105 +527,107 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
     @Override
     protected void addEventBodyToMap(Map<String, Object> map) {
-        if (hasEventBody()) {
-            Message jmsMessage = getEventBody();
-            if (jmsMessage instanceof TextMessage) {
-                TextMessage textMessage = (TextMessage) jmsMessage;
-                try {
-                    String textBody = textMessage.getText();
-                    if (textBody != null && !textBody.isEmpty()) {
-                        map.put(EventCollectorInfo.EVENT_BODY_KEY, textBody);
-                    } else {
-                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty TextMessage");
-                    }
-                } catch (JMSException getTextEx) {
-                    log.warn("Exception encountered reading text from TextMessage - skipping JMS Message body", getTextEx);
-                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading text from TextMessage: " + getTextEx.getMessage());
-                }
-            } else if (jmsMessage instanceof BytesMessage) {
-                BytesMessage bytesMessage = (BytesMessage) jmsMessage;
-                try {
-                    long bodyLength = 0;
-                    bodyLength = bytesMessage.getBodyLength();
-                    if (bodyLength > 0) {
-                        try {
-                            byte[] bodyBytes = new byte[(int) bodyLength];
-                            bytesMessage.readBytes(bodyBytes);
-                            String eventBody = new String(bodyBytes);
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, eventBody);
-                        } catch (JMSException readBytesEx) {
-                            log.warn("Exception encountered reading byte[] from BytesMessage - skipping JMS Message body", readBytesEx);
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading byte[] from BytesMessage: " + readBytesEx.getMessage());
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            if (hasEventBody()) {
+                Message jmsMessage = getEventBody();
+                if (jmsMessage instanceof TextMessage) {
+                    TextMessage textMessage = (TextMessage) jmsMessage;
+                    try {
+                        String textBody = textMessage.getText();
+                        if (textBody != null && !textBody.isEmpty()) {
+                            map.put(EventCollectorInfo.EVENT_BODY_KEY, textBody);
+                        } else {
+                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty TextMessage");
                         }
-                    } else {
-                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty BytesMessage");
+                    } catch (JMSException getTextEx) {
+                        log.warn("Exception encountered reading text from TextMessage - skipping JMS Message body", getTextEx);
+                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading text from TextMessage: " + getTextEx.getMessage());
                     }
-                } catch (JMSException getBodyLengthEx) {
-                    log.warn("Exception encountered getting byte[] length from BytesMessage - skipping JMS Message body", getBodyLengthEx);
-                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered getting byte[] length from BytesMessage: " + getBodyLengthEx.getMessage());
-                }
-            } else if (jmsMessage instanceof MapMessage) {
-                MapMessage mapMessage = (MapMessage) jmsMessage;
-                try {
-                    Enumeration<String> keys = mapMessage.getMapNames();
-                    if (keys != null && keys.hasMoreElements()) {
-                        Map<String, Object> mapMessageBody = new LinkedHashMap<>();
-                        while (keys.hasMoreElements()) {
-                            String key = keys.nextElement();
+                } else if (jmsMessage instanceof BytesMessage) {
+                    BytesMessage bytesMessage = (BytesMessage) jmsMessage;
+                    try {
+                        long bodyLength = 0;
+                        bodyLength = bytesMessage.getBodyLength();
+                        if (bodyLength > 0) {
                             try {
-                                String value = mapMessage.getString(key);
-                                if (value != null) {
-                                    mapMessageBody.put(key, value);
-                                }
-                            } catch (JMSException getStringPropertyEx) {
-                                log.warn("Exception encountered retrieving value for key '{}' from MapMessage - ignoring", key, getStringPropertyEx);
+                                byte[] bodyBytes = new byte[(int) bodyLength];
+                                bytesMessage.readBytes(bodyBytes);
+                                String eventBody = new String(bodyBytes);
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, eventBody);
+                            } catch (JMSException readBytesEx) {
+                                log.warn("Exception encountered reading byte[] from BytesMessage - skipping JMS Message body", readBytesEx);
+                                final String exceptionEventBody = "Exception encountered reading byte[] from BytesMessage: " + readBytesEx.getMessage();
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, exceptionEventBody);
                             }
-                        }
-                        if (mapMessageBody != null && !mapMessageBody.isEmpty()) {
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, mapMessageBody);
                         } else {
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty MapMessage");
+                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty BytesMessage");
                         }
-                    } else {
-                        log.warn("Empty or null Enumeration returned by MapMessage.getMapNames()");
-                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty or null Enumeration returned by MapMessage.getMapNames()");
+                    } catch (JMSException getBodyLengthEx) {
+                        log.warn("Exception encountered getting byte[] length from BytesMessage - skipping JMS Message body", getBodyLengthEx);
+                        final String exceptionEventBody =  "Exception encountered getting byte[] length from BytesMessage: " + getBodyLengthEx.getMessage();
+                        map.put(EventCollectorInfo.EVENT_BODY_KEY, exceptionEventBody);
                     }
-                } catch (JMSException getMapNamesEx) {
-                    log.warn("Exception encountered retrieving keys from MapMessage - ignoring", getMapNamesEx);
-                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered retrieving keys from MapMessage: " + getMapNamesEx.getMessage());
-                }
-            } else if (jmsMessage instanceof ObjectMessage) {
-                ObjectMessage objectMessage = (ObjectMessage) jmsMessage;
-                try {
-                    Serializable objectBody = objectMessage.getObject();
-                    if (objectBody != null) {
-                        String objectBodyString = objectBody.toString();
-                        if (!objectBodyString.isEmpty()) {
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, objectBodyString);
+                } else if (jmsMessage instanceof MapMessage) {
+                    MapMessage mapMessage = (MapMessage) jmsMessage;
+                    try {
+                        Enumeration<String> keys = mapMessage.getMapNames();
+                        if (keys != null && keys.hasMoreElements()) {
+                            Map<String, Object> mapMessageBody = new LinkedHashMap<>();
+                            while (keys.hasMoreElements()) {
+                                String key = keys.nextElement();
+                                try {
+                                    String value = mapMessage.getString(key);
+                                    if (value != null) {
+                                        mapMessageBody.put(key, value);
+                                    }
+                                } catch (JMSException getStringPropertyEx) {
+                                    log.warn("Exception encountered retrieving value for key '{}' from MapMessage - ignoring", key, getStringPropertyEx);
+                                }
+                            }
+                            if (mapMessageBody != null && !mapMessageBody.isEmpty()) {
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, mapMessageBody);
+                            } else {
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty MapMessage");
+                            }
                         } else {
-                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "null Object from ObjectMessage.getObject");
+                            log.warn("Empty or null Enumeration returned by MapMessage.getMapNames()");
+                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "Empty or null Enumeration returned by MapMessage.getMapNames()");
                         }
-                    } else {
-                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "null ObjectMessage");
+                    } catch (JMSException getMapNamesEx) {
+                        log.warn("Exception encountered retrieving keys from MapMessage - ignoring", getMapNamesEx);
+                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered retrieving keys from MapMessage: " + getMapNamesEx.getMessage());
                     }
-                } catch (JMSException getObjectEx) {
-                    log.warn("Exception encountered reading Object from ObjectMessage - skipping JMS Message body", getObjectEx);
-                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading Object from ObjectMessage: " + getObjectEx.getMessage());
+                } else if (jmsMessage instanceof ObjectMessage) {
+                    ObjectMessage objectMessage = (ObjectMessage) jmsMessage;
+                    try {
+                        Serializable objectBody = objectMessage.getObject();
+                        if (objectBody != null) {
+                            String objectBodyString = objectBody.toString();
+                            if (!objectBodyString.isEmpty()) {
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, objectBodyString);
+                            } else {
+                                map.put(EventCollectorInfo.EVENT_BODY_KEY, "null Object from ObjectMessage.getObject");
+                            }
+                        } else {
+                            map.put(EventCollectorInfo.EVENT_BODY_KEY, "null ObjectMessage");
+                        }
+                    } catch (JMSException getObjectEx) {
+                        log.warn("Exception encountered reading Object from ObjectMessage - skipping JMS Message body", getObjectEx);
+                        map.put(EventCollectorInfo.EVENT_BODY_KEY, "Exception encountered reading Object from ObjectMessage: " + getObjectEx.getMessage());
+                    }
+                } else if (jmsMessage instanceof StreamMessage) {
+                    log.warn("Unsupported JMS Message type: {}", jmsMessage.getClass().getName());
+                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "StreamMessage: " + jmsMessage.toString());
+                } else {
+                    log.warn("Unknown JMS Message type: {}", jmsMessage.getClass().getName());
+                    map.put(EventCollectorInfo.EVENT_BODY_KEY, "Unknown JMS Message type: " + jmsMessage.getClass().getName() + "\n" + jmsMessage.toString());
                 }
-            } else if (jmsMessage instanceof StreamMessage) {
-                log.warn("Unsupported JMS Message type: {}", jmsMessage.getClass().getName());
-                map.put(EventCollectorInfo.EVENT_BODY_KEY, "StreamMessage: " + jmsMessage.toString());
-            } else {
-                log.warn("Unknown JMS Message type: {}", jmsMessage.getClass().getName());
-                map.put(EventCollectorInfo.EVENT_BODY_KEY, "Unknown JMS Message type: " + jmsMessage.getClass().getName() + "\n" + jmsMessage.toString());
             }
         }
     }
 
     @Override
     protected void copyConfiguration(EventBuilderSupport<Message> sourceEventBuilder) {
-        log.trace("copyConfiguration CamelJmsMessageEventBuilder");
-
         super.copyConfiguration(sourceEventBuilder);
 
         if (sourceEventBuilder instanceof JmsMessageEventBuilder) {
@@ -638,122 +653,119 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
 
     }
 
+    /**
+     * Get the String value of a JMS Header or property.
+     *
+     * @param headerOrPropertyName the name of the JMS Header or Property
+     *
+     * @return the String value of the header or property, or null if the header or property is not contained in the message.
+     */
     public String getHeaderOrPropertyValue(String headerOrPropertyName) {
         String answer = null;
 
-        if (hasEventBody() && headerOrPropertyName != null && !headerOrPropertyName.isEmpty()) {
-            switch (headerOrPropertyName) {
-            case "JMSDestination":
-                try {
-                    Destination jmsDestination = getEventBody().getJMSDestination();
-                    if (jmsDestination != null) {
-                        answer = jmsDestination.toString();
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSDestination header", jmsEx);
-                }
-                break;
-            case "JMSDeliveryMode":
-                try {
-                    int jmsDeliveryMode = getEventBody().getJMSDeliveryMode();
-                    switch (jmsDeliveryMode) {
-                    case DeliveryMode.NON_PERSISTENT:
-                        answer = "NON_PERSISTENT";
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            if (hasEventBody() && headerOrPropertyName != null && !headerOrPropertyName.isEmpty()) {
+                switch (headerOrPropertyName) {
+                    case JMS_DESTINATION:
+                        Destination jmsDestination = getEventBody().getJMSDestination();
+                        if (jmsDestination != null) {
+                            answer = jmsDestination.toString();
+                        }
                         break;
-                    case DeliveryMode.PERSISTENT:
-                        answer = "PERSISTENT";
+                    case JMS_DELIVERY_MODE:
+                        int jmsDeliveryMode = getEventBody().getJMSDeliveryMode();
+                        switch (jmsDeliveryMode) {
+                            case DeliveryMode.NON_PERSISTENT:
+                                answer = "NON_PERSISTENT";
+                                break;
+                            case DeliveryMode.PERSISTENT:
+                                answer = "PERSISTENT";
+                                break;
+                            default:
+                                // No-op
+                                break;
+                        }
+                        break;
+                    case JMS_EXPIRATION:
+                        long jmsExpiration = getEventBody().getJMSExpiration();
+                        if (jmsExpiration > 0) {
+                            answer = String.valueOf(jmsExpiration);
+                        }
+                        break;
+                    case JMS_PRIORITY:
+                        int jmsPriority = getEventBody().getJMSPriority();
+                        if (jmsPriority > 0 && jmsPriority < 10) {
+                            answer = String.valueOf(jmsPriority);
+                        }
+                        break;
+                    case JMS_MESSAGE_ID:
+                        String jmsMessageID = getEventBody().getJMSMessageID();
+                        if (jmsMessageID != null && !jmsMessageID.isEmpty()) {
+                            answer = jmsMessageID;
+                        }
+                        break;
+                    case JMS_TIMESTAMP:
+                        long jmsTimestamp = getEventBody().getJMSTimestamp();
+                        if (jmsTimestamp > 0) {
+                            answer = String.valueOf(jmsTimestamp);
+                        }
+                        break;
+                    case JMS_CORRELATION_ID:
+                        String jmsCorrelationID = getEventBody().getJMSCorrelationID();
+                        if (jmsCorrelationID != null && !jmsCorrelationID.isEmpty()) {
+                            answer = jmsCorrelationID;
+                        }
+                        break;
+                    case JMS_REPLY_TO:
+                        Destination jmsReplyTo = getEventBody().getJMSReplyTo();
+                        if (jmsReplyTo != null) {
+                            answer = jmsReplyTo.toString();
+                        }
+                        break;
+                    case JMS_TYPE:
+                        String jmsType = getEventBody().getJMSType();
+                        if (jmsType != null && !jmsType.isEmpty()) {
+                            answer = jmsType;
+                        } else {
+                            answer = getEventBody().getClass().getSimpleName();
+                        }
+                        break;
+                    case JMS_REDELIVERED:
+                        boolean jmsRedelivered = getEventBody().getJMSRedelivered();
+                        answer = Boolean.toString(jmsRedelivered);
                         break;
                     default:
-                        // No-op
-                        break;
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSDeliveryMode header", jmsEx);
+                        answer = getEventBody().getStringProperty(headerOrPropertyName);
                 }
-                break;
-            case "JMSExpiration":
-                try {
-                    long jmsExpiration = getEventBody().getJMSExpiration();
-                    if (jmsExpiration > 0) {
-                        answer = String.valueOf(jmsExpiration);
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSExpiration header", jmsEx);
-                }
-                break;
-            case "JMSPriority":
-                try {
-                    int jmsPriority = getEventBody().getJMSPriority();
-                    if (jmsPriority > 0 && jmsPriority < 10) {
-                        answer = String.valueOf(jmsPriority);
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSPriority header", jmsEx);
-                }
-                break;
-            case "JMSMessageID":
-                try {
-                    String jmsMessageID = getEventBody().getJMSMessageID();
-                    if (jmsMessageID != null && !jmsMessageID.isEmpty()) {
-                        answer = jmsMessageID;
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSMessageID header", jmsEx);
-                }
-                break;
-            case "JMSTimestamp":
-                try {
-                    long jmsTimestamp = getEventBody().getJMSTimestamp();
-                    if (jmsTimestamp > 0) {
-                        answer = String.valueOf(jmsTimestamp);
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSTimestamp header", jmsEx);
-                }
-                break;
-            case "JMSCorrelationID":
-                try {
-                    String jmsCorrelationID = getEventBody().getJMSCorrelationID();
-                    if (jmsCorrelationID != null && !jmsCorrelationID.isEmpty()) {
-                        answer = jmsCorrelationID;
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSCorrelationID header", jmsEx);
-                }
-                break;
-            case "JMSReplyTo":
-                try {
-                    Destination jmsReplyTo = getEventBody().getJMSReplyTo();
-                    if (jmsReplyTo != null) {
-                        answer = jmsReplyTo.toString();
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSReplyTo header", jmsEx);
-                }
-                break;
-            case "JMSType":
-                try {
-                    String jmsType = getEventBody().getJMSType();
-                    if (jmsType != null && !jmsType.isEmpty()) {
-                        answer = jmsType;
-                    }
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSType header", jmsEx);
-                }
-                break;
-            case "JMSRedelivered":
-                try {
-                    boolean jmsRedelivered = getEventBody().getJMSRedelivered();
-                    answer = Boolean.toString(jmsRedelivered);
-                } catch (JMSException jmsEx) {
-                    log.warn("Exception encountered reading JMSRedelivered header", jmsEx);
-                }
-                break;
-            default:
-            }
+        }
+        } catch (JMSException jmsEx) {
+            log.warn("Exception encountered reading {}", headerOrPropertyName, jmsEx);
         }
 
         return answer;
+    }
+
+    @Override
+    protected void appendConfiguration(StringBuilder builder) {
+        super.appendConfiguration(builder);
+
+        builder.append(" includeJmsDestination='").append(includeJmsDestination).append('\'')
+                .append(" includeJmsDeliveryMode='").append(includeJmsDeliveryMode).append('\'')
+                .append(" includeJmsExpiration='").append(includeJmsExpiration).append('\'')
+                .append(" includeJmsPriority='").append(includeJmsPriority).append('\'')
+                .append(" includeJmsMessageId='").append(includeJmsMessageId).append('\'')
+                .append(" includeJmsTimestamp='").append(includeJmsTimestamp).append('\'')
+                .append(" includeJmsCorrelationId='").append(includeJmsCorrelationId).append('\'')
+                .append(" includeJmsReplyTo='").append(includeJmsReplyTo).append('\'')
+                .append(" includeJmsType='").append(includeJmsType).append('\'')
+                .append(" includeJmsRedelivered='").append(includeJmsRedelivered).append('\'')
+                .append(" includeJmsProperties='").append(includeJmsProperties).append('\'');
+
+        if (hasPropertyNameReplacements()) {
+            builder.append(" propertyNameReplacements='").append(propertyNameReplacements).append('\'');
+        }
+
+        return;
     }
 
 }

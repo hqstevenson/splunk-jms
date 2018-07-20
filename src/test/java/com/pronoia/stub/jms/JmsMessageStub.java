@@ -25,6 +25,12 @@ import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
 
+
+/**
+ * Simple JMS Message Stub.
+ *
+ * TODO:  Replace usages of this class with Mockito mocks or spys.
+ */
 public class JmsMessageStub implements Message {
     String id = "Dummy Message Id";
     long timestamp = System.currentTimeMillis();
@@ -71,13 +77,13 @@ public class JmsMessageStub implements Message {
     }
 
     @Override
-    public void setJMSCorrelationID(String correlationID) throws JMSException {
-        this.correlationId = correlationID;
+    public String getJMSCorrelationID() throws JMSException {
+        return this.correlationId;
     }
 
     @Override
-    public String getJMSCorrelationID() throws JMSException {
-        return this.correlationId;
+    public void setJMSCorrelationID(String correlationID) throws JMSException {
+        this.correlationId = correlationID;
     }
 
     @Override

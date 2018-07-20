@@ -20,6 +20,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+
 /**
  * Tests for the JmsMessageEventBuilder with TextMessages class.
  */

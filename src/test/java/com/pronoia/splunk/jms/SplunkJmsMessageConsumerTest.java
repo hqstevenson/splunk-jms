@@ -17,21 +17,21 @@
 package com.pronoia.splunk.jms;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
-
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 import com.pronoia.stub.httpec.EventCollectorClientStub;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import static org.junit.Assert.assertNotNull;
+
 
 /**
  * Tests for the  class.

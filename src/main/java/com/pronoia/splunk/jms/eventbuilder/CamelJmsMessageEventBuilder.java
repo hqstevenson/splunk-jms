@@ -19,7 +19,6 @@ package com.pronoia.splunk.jms.eventbuilder;
 import javax.jms.Message;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
-import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 
 public class CamelJmsMessageEventBuilder extends JmsMessageEventBuilder {
     public CamelJmsMessageEventBuilder() {
@@ -29,19 +28,11 @@ public class CamelJmsMessageEventBuilder extends JmsMessageEventBuilder {
 
     @Override
     public EventBuilder<Message> duplicate() {
-        log.trace("Duplicating CamelJmsMessageEventBuilder");
-
         CamelJmsMessageEventBuilder answer = new CamelJmsMessageEventBuilder();
 
         answer.copyConfiguration(this);
 
         return answer;
-    }
-
-    @Override
-    protected void copyConfiguration(EventBuilderSupport<Message> sourceEventBuilder) {
-        log.trace("copyConfiguration CamelJmsMessageEventBuilder");
-        super.copyConfiguration(sourceEventBuilder);
     }
 
 }
