@@ -23,7 +23,7 @@
     <groupId>com.github.hqstevenson.splunk</groupId>
     <artifactId>splunk.jms</artifactId>
     <packaging>bundle</packaging>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
 
     <name>Splunk JMS Support Classes</name>
     <description>

@@ -47,7 +47,7 @@ public class SplunkJmsConsumerSupport {
     Connection connection;
     Session session;
     MessageConsumer consumer;
-    boolean connectionStarted;
+    volatile boolean connectionStarted;
 
 
     EventBuilder<Message> splunkEventBuilder;

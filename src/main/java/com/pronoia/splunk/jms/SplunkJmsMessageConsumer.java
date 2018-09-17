@@ -43,7 +43,7 @@ public class SplunkJmsMessageConsumer extends SplunkJmsConsumerSupport implement
      * TODO:  Fixup error handling
      */
     ScheduledExecutorService scheduledExecutorService;
-    boolean scheduled;
+    volatile boolean scheduled;
 
     public SplunkJmsMessageConsumer(String destinationName) {
         super(destinationName, false);
