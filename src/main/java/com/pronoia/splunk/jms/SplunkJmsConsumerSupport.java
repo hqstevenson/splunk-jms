@@ -146,13 +146,21 @@ public class SplunkJmsConsumerSupport {
     }
 
     protected boolean createConnection(boolean throwException) {
+        cleanup(false);
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.debug("Establishing connection for {}", destinationName);
 
             try {
                 log.trace("Creating JMS Connection for {}", destinationName);
-                connection = connectionFactory.createConnection();
-                return true;
+                ConnectionFactory tmpConnectionFactory = getConnectionFactory();
+                if (tmpConnectionFactory != null) {
+                    connection = tmpConnectionFactory.createConnection();
+                    if (throwException && connection == null) {
+                        throw new IllegalStateException("Failed to create connection from connection factory");
+                    }
+                } else if (throwException) {
+                    throw new IllegalStateException("getConnectionFactory returned null");
+                }
             } catch (JMSException jmsEx) {
                 cleanup(false);
                 String errorMessage = String.format("Exception encountered creating JMS Connection {destinationName name ='%s'}", destinationName);
@@ -162,7 +170,7 @@ public class SplunkJmsConsumerSupport {
                 log.info(errorMessage, jmsEx);
             }
         }
-        return false;
+        return connection != null;
     }
 
     public boolean hasConnection() {

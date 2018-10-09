@@ -33,7 +33,7 @@ import com.pronoia.splunk.eventcollector.util.NamedThreadFactory;
  *
  * This class is intended to be run on a schedule with a fixed delay.
  */
-public class SplunkJmsMessageConsumer extends SplunkJmsConsumerSupport implements Runnable {
+public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implements Runnable {
     long receiveTimeoutMillis = 1000;
     long initialDelaySeconds = 1;
     long delaySeconds = 60;
@@ -45,11 +45,11 @@ public class SplunkJmsMessageConsumer extends SplunkJmsConsumerSupport implement
     ScheduledExecutorService scheduledExecutorService;
     volatile boolean scheduled;
 
-    public SplunkJmsMessageConsumer(String destinationName) {
+    public SplunkJmsConsumerRunnable(String destinationName) {
         super(destinationName, false);
     }
 
-    public SplunkJmsMessageConsumer(String destinationName, boolean useTopic) {
+    public SplunkJmsConsumerRunnable(String destinationName, boolean useTopic) {
         super(destinationName, useTopic);
     }
 

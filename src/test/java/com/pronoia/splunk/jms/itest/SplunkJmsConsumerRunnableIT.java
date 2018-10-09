@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.pronoia.splunk.jms;
+package com.pronoia.splunk.jms.itest;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
+import com.pronoia.junit.asserts.activemq.EmbeddedBrokerAssert;
+import com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient;
+import com.pronoia.splunk.jms.SplunkJmsConsumerRunnable;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
-import com.pronoia.stub.httpec.EventCollectorClientStub;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
@@ -30,13 +32,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import static org.junit.Assert.assertNotNull;
-
 
 /**
  * Tests for the  class.
  */
-public class SplunkJmsMessageListenerTest {
+public class SplunkJmsConsumerRunnableIT {
     static final String DESTINATION_NAME = "audit.in";
 
     @Rule
@@ -44,31 +44,45 @@ public class SplunkJmsMessageListenerTest {
 
     Logger log = LoggerFactory.getLogger(this.getClass());
 
-    EventCollectorClientStub clientStub = new EventCollectorClientStub();
-    SplunkJmsMessageListener instance;
+    SimpleEventCollectorClient httpecClient = new SimpleEventCollectorClient();
+
+    SplunkJmsConsumerRunnable instance;
 
     @Before
     public void setUp() throws Exception {
         String brokerURL = String.format("vm://%s?create=false&waitForStart=5000", broker.getBrokerName());
 
+        instance = new SplunkJmsConsumerRunnable(DESTINATION_NAME);
         ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
+
         connectionFactory.setBrokerURL(brokerURL);
         connectionFactory.setUserName("admin");
         connectionFactory.setPassword("admin");
-
-        instance = new SplunkJmsMessageListener(DESTINATION_NAME);
         instance.setConnectionFactory(connectionFactory);
-        instance.setSplunkEventBuilder(new JmsMessageEventBuilder());
 
-        log.info("Starting message listener");
-        instance.setSplunkClient(clientStub);
+        JmsMessageEventBuilder builder = new JmsMessageEventBuilder();
+
+        builder.setIndex("fuse-dev");
+        builder.setSource("test-source");
+        builder.setSourcetype("test-sourcetype");
+
+        instance.setSplunkEventBuilder(builder);
+
+        httpecClient = new SimpleEventCollectorClient();
+
+        // Local Settings
+        httpecClient.setHost("localhost");
+        httpecClient.setPort(8088);
+        httpecClient.setAuthorizationToken("5DA702AD-D855-4679-9CDE-A398494BE854");
+        httpecClient.disableCertificateValidation();
+
+        instance.setSplunkClient(httpecClient);
 
         instance.start();
     }
 
     @After
     public void tearDown() throws Exception {
-        log.info("Stopping message listener");
         instance.stop();
     }
 
@@ -78,12 +92,19 @@ public class SplunkJmsMessageListenerTest {
      * @throws Exception in the event of a test error.
      */
     @Test
-    public void testOnMessage() throws Exception {
-        broker.sendTextMessage("queue://audit.in", "Dummy Message Body");
+    public void testSendMessage() throws Exception {
+        broker.sendTextMessage(DESTINATION_NAME, "TEST MESSAGE FROM JMS CONSUMER");
 
-        Thread.sleep(200);  // Wait for the listener to consume the message
+        // Give the instance a little time to process the message
+        Thread.sleep(instance.getReceiveTimeoutMillis() * 3);
 
-        assertNotNull(clientStub.lastEvent);
+        EmbeddedBrokerAssert.assertMessageCount(broker, DESTINATION_NAME, 0);
+
+        instance.stop();
+        // Give the instance a little time to shutdown gracefully
+        Thread.sleep(instance.getReceiveTimeoutMillis() * 2);
+
+        log.info("Test ended");
     }
 
 }

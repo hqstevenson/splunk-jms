@@ -17,6 +17,7 @@
 package com.pronoia.splunk.jms;
 
 import com.pronoia.junit.activemq.EmbeddedActiveMQBroker;
+import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 import com.pronoia.stub.httpec.EventCollectorClientStub;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
@@ -26,26 +27,25 @@ import org.slf4j.LoggerFactory;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 
 /**
- * Lifecycle tests for the SplunkJmsMessageListener class.
+ * Tests for the  class.
  */
-public class SplunkJmsMessageListenerLifecycleTest {
+public class SplunkJmsConsumerRunnableTest {
     static final String DESTINATION_NAME = "audit.in";
+
+    @Rule
+    public EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
 
     Logger log = LoggerFactory.getLogger(this.getClass());
 
     EventCollectorClientStub clientStub = new EventCollectorClientStub();
-
-    EmbeddedActiveMQBroker broker = new EmbeddedActiveMQBroker();
-
-    SplunkJmsMessageListener instance;
+    SplunkJmsConsumerRunnable instance;
 
     @Before
     public void setUp() throws Exception {
@@ -56,51 +56,34 @@ public class SplunkJmsMessageListenerLifecycleTest {
         connectionFactory.setUserName("admin");
         connectionFactory.setPassword("admin");
 
-        instance = new SplunkJmsMessageListener(DESTINATION_NAME);
+        instance = new SplunkJmsConsumerRunnable(DESTINATION_NAME);
         instance.setConnectionFactory(connectionFactory);
+        instance.setSplunkEventBuilder(new JmsMessageEventBuilder());
 
-        log.info("Starting message listener");
+        log.info("Starting instance");
         instance.setSplunkClient(clientStub);
+
+        instance.start();
     }
 
     @After
     public void tearDown() throws Exception {
-        log.info("Stopping message listener");
+        log.info("Stopping instance");
         instance.stop();
     }
 
     /**
-     * Make sure we get an exception if a connection cannot be established.
-     *
-     * @throws Exception in the event of a test error.
-     */
-    @Test(expected = IllegalStateException.class)
-    public void testInitialConnectionFailure() throws Exception {
-        instance.start();
-    }
-
-    /**
-     * Make the listener stop when the connection is lost.
+     * Description of test.
      *
      * @throws Exception in the event of a test error.
      */
     @Test
-    public void testConnectionLost() throws Exception {
-        broker.start();
-        instance.start();
+    public void testSingleMessage() throws Exception {
+        broker.sendTextMessage("queue://audit.in", "Dummy Message Body");
 
-        assertTrue("Listener should be connectionStarted", instance.isConnectionStarted());
-
-        broker.sendTextMessage(DESTINATION_NAME, "Dummy Body");
-
-        Thread.sleep(1000);  // Wait for the listener to consume the message
+        Thread.sleep(instance.getInitialDelaySeconds() * 1000 + instance.getReceiveTimeoutMillis() * 2);  // Wait for the listener to consume the message
 
         assertNotNull(clientStub.lastEvent);
-
-        broker.stop();
-
-        Thread.sleep(100);
-
-        assertFalse("Listener should not be connectionStarted", instance.isConnectionStarted());
     }
+
 }
