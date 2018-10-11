@@ -33,6 +33,7 @@ import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
+import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
 import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
@@ -433,7 +434,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
     }
 
     @Override
-    public String getHostFieldValue() {
+    public String getHostFieldValue(EventCollectorClient client) {
         String answer = null;
 
         if (!hasHost() && hasHostProperty()) {
@@ -441,14 +442,14 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         }
 
         if (answer == null || answer.isEmpty()) {
-            answer = super.getHostFieldValue();
+            answer = super.getHostFieldValue(client);
         }
 
         return answer;
     }
 
     @Override
-    public String getIndexFieldValue() {
+    public String getIndexFieldValue(EventCollectorClient client) {
         String answer = null;
 
         if (!hasIndex() && hasIndexProperty()) {
@@ -456,14 +457,14 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         }
 
         if (answer == null || answer.isEmpty()) {
-            answer = super.getIndexFieldValue();
+            answer = super.getIndexFieldValue(client);
         }
 
         return answer;
     }
 
     @Override
-    public String getSourceFieldValue() {
+    public String getSourceFieldValue(EventCollectorClient client) {
         String answer = null;
 
         if (!hasSource()) {
@@ -475,14 +476,14 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         }
 
         if (answer == null || answer.isEmpty()) {
-            answer = super.getSourceFieldValue();
+            answer = super.getSourceFieldValue(client);
         }
 
         return answer;
     }
 
     @Override
-    public String getSourcetypeFieldValue() {
+    public String getSourcetypeFieldValue(EventCollectorClient client) {
         String answer = null;
 
         if (!hasSourcetype() && hasSourcetypeProperty()) {
@@ -490,7 +491,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
         }
 
         if (answer == null || answer.isEmpty()) {
-            answer = super.getSourcetypeFieldValue();
+            answer = super.getSourcetypeFieldValue(client);
         }
 
         return answer;
@@ -516,13 +517,13 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
     }
 
     @Override
-    protected void addAdditionalFieldsToMap(Map<String, Object> map) {
+    protected void addAdditionalFieldsToMap(EventCollectorClient client, Map<String, Object> map) {
         if (hasEventBody()) {
             extractMessageHeadersToMap(getEventBody(), map);
             extractMessagePropertiesToMap(getEventBody(), map);
         }
 
-        super.addAdditionalFieldsToMap(map);
+        super.addAdditionalFieldsToMap(client, map);
     }
 
     @Override

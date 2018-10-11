@@ -30,6 +30,8 @@ import com.pronoia.splunk.eventcollector.EventDeliveryException;
 import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
+import java.util.Date;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -47,8 +49,12 @@ public class SplunkJmsConsumerSupport {
     Connection connection;
     Session session;
     MessageConsumer consumer;
-    volatile boolean connectionStarted;
 
+    volatile boolean connectionStarted;
+    volatile Date connectionStartTime;
+    volatile Date connectionStopTime;
+    volatile Date lastMessageTime;
+    volatile long consumedMessageCount;
 
     EventBuilder<Message> splunkEventBuilder;
 
@@ -90,8 +96,20 @@ public class SplunkJmsConsumerSupport {
         return connectionStarted;
     }
 
-    public void setConnectionStarted(boolean connectionStarted) {
-        this.connectionStarted = connectionStarted;
+    public Date getConnectionStartTime() {
+        return connectionStartTime;
+    }
+
+    public Date getLastMessageTime() {
+        return lastMessageTime;
+    }
+
+    public long getConsumedMessageCount() {
+        return consumedMessageCount;
+    }
+
+    public Date getConnectionStopTime() {
+        return connectionStartTime;
     }
 
     public boolean isUseTopic() {
@@ -233,6 +251,7 @@ public class SplunkJmsConsumerSupport {
                 log.trace("Starting JMS connection for {}", destinationName);
                 connection.start();
                 connectionStarted = true;
+                connectionStartTime = new Date();
             } catch (JMSException jmsEx) {
                 cleanup(false);
                 String errorMessage = String.format("Exception encountered starting JMS Connection {destinationName name ='%s'}", destinationName);
@@ -272,13 +291,14 @@ public class SplunkJmsConsumerSupport {
                         log.warn("Failed to retrieve value of JMSMessageID and JMSTimestamp for sendMessageToSplunk received log entry");
                     }
                 }
-                String eventBody = splunkEventBuilder.eventBody(message).build();
+                String eventBody = splunkEventBuilder.eventBody(message).build(splunkClient);
 
                 try {
                     splunkClient.sendEvent(eventBody);
                     try {
-                        // message.acknowledge();
                         session.commit();
+                        ++consumedMessageCount;
+                        lastMessageTime = new Date();
                     } catch (JMSException jmsAcknowledgeEx) {
                         try {
                             String logMessage = String.format("Failed to acknowledge and commit JMS Message JMSMessageID=%s ", message.getJMSMessageID());
@@ -304,23 +324,24 @@ public class SplunkJmsConsumerSupport {
      */
     void cleanup(boolean logExceptions) {
         try (SplunkMDCHelper helper = createMdcHelper()) {
-            connectionStarted = false;
-
             if (connection != null) {
                 try {
                     connection.stop();
-                } catch (JMSException jmsEx) {
+                } catch (Exception jmsEx) {
                     if (logExceptions) {
                         String logMessage = String.format("Exception encountered stopping JMS Connection {destinationName name ='%s'}", destinationName);
                         log.warn(logMessage, jmsEx);
                     }
+                } finally {
+                    connectionStarted = false;
+                    connectionStopTime = new Date();
                 }
             }
 
             if (consumer != null) {
                 try {
                     consumer.close();
-                } catch (JMSException jmsEx) {
+                } catch (Exception jmsEx) {
                     if (logExceptions) {
                         String logMessage = String.format("Exception encountered closing JMS MessageConsumer {destinationName name ='%s'}", destinationName);
                         log.warn(logMessage, jmsEx);
@@ -333,7 +354,7 @@ public class SplunkJmsConsumerSupport {
             if (session != null) {
                 try {
                     session.close();
-                } catch (JMSException jmsEx) {
+                } catch (Exception jmsEx) {
                     if (logExceptions) {
                         String logMessage = String.format("Exception encountered closing JMS Session {destinationName name ='%s'}", destinationName);
                         log.warn(logMessage, jmsEx);
@@ -346,7 +367,7 @@ public class SplunkJmsConsumerSupport {
             if (connection != null) {
                 try {
                     connection.close();
-                } catch (JMSException jmsEx) {
+                } catch (Exception jmsEx) {
                     if (logExceptions) {
                         String logMessage = String.format("Exception encountered closing JMS Connection {destinationName name ='%s'}", destinationName);
                         log.warn(logMessage, jmsEx);

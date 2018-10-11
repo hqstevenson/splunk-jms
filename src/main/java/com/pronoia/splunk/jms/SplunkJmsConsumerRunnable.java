@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.pronoia.splunk.jms;
 
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
+import com.pronoia.splunk.eventcollector.util.NamedThreadFactory;
+
+import java.util.Date;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
-
-import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
-import com.pronoia.splunk.eventcollector.util.NamedThreadFactory;
 
 
 /**
@@ -34,16 +36,18 @@ import com.pronoia.splunk.eventcollector.util.NamedThreadFactory;
  * This class is intended to be run on a schedule with a fixed delay.
  */
 public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implements Runnable {
-    long receiveTimeoutMillis = 1000;
-    long initialDelaySeconds = 1;
+    long receiveTimeoutMillis = 15000;
+    long initialDelaySeconds = 5;
     long delaySeconds = 60;
     /**
      * Start the JMS Consumer and process messages.
      *
      * TODO:  Fixup error handling
      */
-    ScheduledExecutorService scheduledExecutorService;
-    volatile boolean scheduled;
+    ScheduledExecutorService consumerExecutor;
+
+    Date startTime;
+    Date stopTime;
 
     public SplunkJmsConsumerRunnable(String destinationName) {
         super(destinationName, false);
@@ -53,30 +57,54 @@ public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implemen
         super(destinationName, useTopic);
     }
 
+    public boolean isRunning() {
+        return consumerExecutor != null && !(consumerExecutor.isShutdown() || consumerExecutor.isTerminated());
+    }
+
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    public Date getStopTime() {
+        return stopTime;
+    }
+
     public void start() {
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.info("Starting JMS consumer for {}", destinationName);
             verifyConfiguration();
 
             NamedThreadFactory threadFactory = new NamedThreadFactory(this.getClass().getSimpleName() + "{" + destinationName + "}");
-            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
+            consumerExecutor = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-            scheduledExecutorService.scheduleWithFixedDelay(this, initialDelaySeconds, delaySeconds, TimeUnit.SECONDS);
-            scheduled = true;
+            consumerExecutor.scheduleWithFixedDelay(this, initialDelaySeconds, delaySeconds, TimeUnit.SECONDS);
+            startTime = new Date();
         }
     }
 
     public void stop() {
         try (SplunkMDCHelper helper = createMdcHelper()) {
-            scheduled = false;
-            if (scheduledExecutorService != null) {
+            if (consumerExecutor != null) {
                 log.info("Shutting-down executor service");
-                scheduledExecutorService.shutdownNow();
+                consumerExecutor.shutdownNow();
                 log.info("Executor service shutdown");
-                scheduledExecutorService = null;
+                consumerExecutor = null;
+                stopTime = new Date();
             }
         }
     }
+
+    public void restart() {
+        stop();
+        try {
+            Thread.sleep(getInitialDelaySeconds());
+            start();
+        } catch (InterruptedException interruptedEx) {
+            log.warn("Restart was interrupted - consumer will not be restarted", interruptedEx);
+        }
+    }
+
+
 
     public long getReceiveTimeoutMillis() {
         return receiveTimeoutMillis;
@@ -109,7 +137,7 @@ public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implemen
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.debug("Entering message processing loop for consumer {}", destinationName);
 
-            if (scheduled) {
+            if (!Thread.currentThread().isInterrupted()) {
                 if (!createConnection(false)) {
                     return;
                 }
@@ -117,7 +145,7 @@ public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implemen
                     createConsumer();
                     startConnection();
 
-                    while (scheduled && isConnectionStarted()) {
+                    while (isConnectionStarted() && !Thread.currentThread().isInterrupted()) {
                         try {
                             Message message = consumer.receive(receiveTimeoutMillis);
                             if (message != null) {
@@ -127,29 +155,18 @@ public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implemen
                             Throwable cause = jmsEx.getCause();
                             if (cause != null && cause instanceof InterruptedException) {
                                 // If we're still supposed to be scheduled, re-throw the exception; otherwise just log it
-                                if (scheduled) {
-                                    throw jmsEx;
-                                } else {
-                                    cleanup(false);
-                                    if (log.isDebugEnabled()) {
-                                        final String debugMessageFormat = "Consumer.receive(%d) call interrupted in processing loop for %s - stopping consumer";
-                                        final String debugMessage = String.format(debugMessageFormat, receiveTimeoutMillis, destinationName);
-                                        log.debug(debugMessage, jmsEx);
-                                    }
+                                cleanup(false);
+                                if (log.isDebugEnabled()) {
+                                    final String debugMessageFormat = "Consumer.receive(%d) call interrupted in processing loop for %s - stopping consumer";
+                                    final String debugMessage = String.format(debugMessageFormat, receiveTimeoutMillis, destinationName);
+                                    log.debug(debugMessage, jmsEx);
                                 }
                             }
                         }
                     }
                 } catch (Exception ex) {
-                    cleanup(false);
-                    if (scheduled) {
-                        final String warningMessageFormat = "Exception encountered in processing loop for %s - restart will be attempted in %d seconds";
-                        final String warningMessage = String.format(warningMessageFormat, destinationName, delaySeconds);
-                        log.info(warningMessage, ex);
-                    } else {
-                        String infoMessage = String.format("Exception encountered in processing loop for %s - stopping consumer", destinationName);
-                        log.warn(infoMessage, ex);
-                    }
+                    String infoMessage = String.format("Exception encountered in processing loop for %s - stopping consumer", destinationName, ex);
+                    log.warn(infoMessage, ex);
                 } finally {
                     log.info("JMS consumer for {} stopped", destinationName);
                     stopConnection();
