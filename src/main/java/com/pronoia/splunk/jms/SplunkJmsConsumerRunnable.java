@@ -78,6 +78,7 @@ public class SplunkJmsConsumerRunnable extends SplunkJmsConsumerSupport implemen
             consumerExecutor = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
             consumerExecutor.scheduleWithFixedDelay(this, initialDelaySeconds, delaySeconds, TimeUnit.SECONDS);
+            consumedMessageCount = 0;
             startTime = new Date();
         }
     }
