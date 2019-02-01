@@ -27,10 +27,13 @@ import javax.jms.Session;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
+import com.pronoia.splunk.eventcollector.EventDeliveryHttpException;
 import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +60,21 @@ public class SplunkJmsConsumerSupport {
     volatile long consumedMessageCount;
 
     EventBuilder<Message> splunkEventBuilder;
+
+    Set<Integer> consumedHttpStatusCodes;
+    Set<Integer> consumedSplunkStatusCodes;
+
+    {
+        consumedHttpStatusCodes = new HashSet<>();
+        consumedHttpStatusCodes.add(200);
+
+        consumedSplunkStatusCodes = new HashSet<>();
+        consumedSplunkStatusCodes.add(0); // Success
+        consumedSplunkStatusCodes.add(5); // No Data
+//        consumedSplunkStatusCodes.add(6); // Invalid data format
+        consumedSplunkStatusCodes.add(12); // Event field is required
+        consumedSplunkStatusCodes.add(13); // Event field cannot be blank
+    }
 
     public SplunkJmsConsumerSupport(String destinationName) {
         this.destinationName = destinationName;
@@ -142,6 +160,54 @@ public class SplunkJmsConsumerSupport {
 
     public void setSplunkEventBuilder(EventBuilder<Message> splunkEventBuilder) {
         this.splunkEventBuilder = splunkEventBuilder;
+    }
+
+    public boolean isConsumedHttpStatusCode(int httpStatusCode) {
+
+        return hasConsumedHttpStatusCodes() &&  consumedHttpStatusCodes.contains(httpStatusCode);
+    }
+
+    public boolean hasConsumedHttpStatusCodes() {
+        return consumedHttpStatusCodes != null && !consumedHttpStatusCodes.isEmpty();
+    }
+
+    public Set<Integer> getConsumedHttpStatusCodes() {
+        return consumedHttpStatusCodes;
+    }
+
+    public void setConsumedHttpStatusCodes(Set<Integer> consumedHttpStatusCodes) {
+        if (consumedHttpStatusCodes != null) {
+            if (this.consumedHttpStatusCodes == null) {
+                this.consumedHttpStatusCodes = new HashSet<>();
+            } else {
+                this.consumedHttpStatusCodes.clear();
+            }
+            this.consumedHttpStatusCodes.addAll(consumedHttpStatusCodes);
+        }
+    }
+
+    public boolean isConsumedSplunkStatusCode(int splunkStatusCode) {
+
+        return hasConsumedSplunkStatusCodes() &&  consumedSplunkStatusCodes.contains(splunkStatusCode);
+    }
+
+    public boolean hasConsumedSplunkStatusCodes() {
+        return consumedSplunkStatusCodes != null && !consumedSplunkStatusCodes.isEmpty();
+    }
+
+    public Set<Integer> getConsumedSplunkStatusCodes() {
+        return consumedSplunkStatusCodes;
+    }
+
+    public void setConsumedSplunkStatusCodes(Set<Integer> consumedSplunkStatusCodes) {
+        if (consumedSplunkStatusCodes != null) {
+            if (this.consumedSplunkStatusCodes == null) {
+                this.consumedSplunkStatusCodes = new HashSet<>();
+            } else {
+                this.consumedSplunkStatusCodes.clear();
+            }
+            this.consumedSplunkStatusCodes.addAll(consumedSplunkStatusCodes);
+        }
     }
 
     public void verifyConfiguration() {
@@ -295,25 +361,24 @@ public class SplunkJmsConsumerSupport {
 
                 try {
                     splunkClient.sendEvent(eventBody);
-                    try {
-                        session.commit();
-                        ++consumedMessageCount;
-                        lastMessageTime = new Date();
-                    } catch (JMSException jmsAcknowledgeEx) {
-                        try {
-                            String logMessage = String.format("Failed to acknowledge and commit JMS Message JMSMessageID=%s ", message.getJMSMessageID());
-                            log.error(logMessage, jmsAcknowledgeEx);
-                        } catch (JMSException getMessageIdEx) {
-                            log.error("Failed to acknowledge JMS Message", jmsAcknowledgeEx);
-                        }
+                    commitMessage(message);
+                } catch (EventDeliveryHttpException eventDeliveryHttpEx ) {
+                    if (isConsumedSplunkStatusCode(eventDeliveryHttpEx.getSplunkStatusCode()) || isConsumedHttpStatusCode(eventDeliveryHttpEx.getHttpStatusCode())) {
+                        log.warn("Ignoring exception encountered processing event - event body will follow at DEBUG level: code={} text={}",
+                                eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage());
+                        log.debug("Ignoring event: {}", eventBody);
+
+                        commitMessage(message);
+                    } else {
+                        log.warn("Splunk failed to process message - rolling-back session: response_code={}, response_reason={}, status_code={}, status_message={}",
+                                eventDeliveryHttpEx.getHttpStatusCode(), eventDeliveryHttpEx.getHttpReasonPhrase(),
+                                eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage(),
+                                eventDeliveryHttpEx);
+                        rollbackMessage(message);
                     }
                 } catch (EventDeliveryException eventDeliveryEx) {
                     log.warn("Failed to deliver message to Splunk - rolling-back session", eventDeliveryEx);
-                    try {
-                        session.rollback();
-                    } catch (JMSException jmsRollbackEx) {
-                        log.error("Failed to rollback JMS Session", jmsRollbackEx);
-                    }
+                    rollbackMessage(message);
                 }
             }
         }
@@ -394,4 +459,33 @@ public class SplunkJmsConsumerSupport {
         }
     }
 
+    void commitMessage(Message message) {
+        try {
+            session.commit();
+            ++consumedMessageCount;
+            lastMessageTime = new Date();
+        } catch (JMSException jmsAcknowledgeEx) {
+            String messageID= "<unknown>";
+            try {
+                messageID = message.getJMSMessageID();
+            } catch (JMSException getMessageIdEx) {
+                // Eat this - should never happen
+            }
+            log.error("Failed to acknowledge and commit JMS Message: JMSMessageID=%s ", messageID, jmsAcknowledgeEx);
+        }
+    }
+
+    void rollbackMessage(Message message) {
+        try {
+            session.rollback();
+        } catch (JMSException jmsRollbackEx) {
+            String messageID= "<unknown>";
+            try {
+                messageID = message.getJMSMessageID();
+            } catch (JMSException getMessageIdEx) {
+                // Eat this - should never happen
+            }
+            log.error("Failed to rollback JMS Message: JMSMessageID=%s ", messageID, jmsRollbackEx);
+        }
+    }
 }
