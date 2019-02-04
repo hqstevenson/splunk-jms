@@ -16,24 +16,35 @@
  */
 package com.pronoia.splunk.jms;
 
+import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.Destination;
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
+import javax.jms.ObjectMessage;
 import javax.jms.Session;
+import javax.jms.StreamMessage;
+import javax.jms.TextMessage;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
+import com.pronoia.splunk.eventcollector.EventCollectorInfo;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
 import com.pronoia.splunk.eventcollector.EventDeliveryHttpException;
 import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.jms.eventbuilder.JmsMessageEventBuilder;
 
+import java.io.Serializable;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +71,8 @@ public class SplunkJmsConsumerSupport {
     volatile long consumedMessageCount;
 
     EventBuilder<Message> splunkEventBuilder;
+
+    AtomicBoolean skipNextMessage = new AtomicBoolean(false);
 
     Set<Integer> consumedHttpStatusCodes;
     Set<Integer> consumedSplunkStatusCodes;
@@ -160,6 +173,22 @@ public class SplunkJmsConsumerSupport {
 
     public void setSplunkEventBuilder(EventBuilder<Message> splunkEventBuilder) {
         this.splunkEventBuilder = splunkEventBuilder;
+    }
+
+    public boolean getSkipNextMessage() {
+        return  (skipNextMessage != null) ? skipNextMessage.get() : false;
+    }
+
+    public void setSkipNextMessage(boolean skipNextMessage) {
+        if (this.skipNextMessage != null) {
+            this.skipNextMessage.set(skipNextMessage);
+        } else {
+            this.skipNextMessage = new AtomicBoolean(skipNextMessage);
+        }
+    }
+
+    public void skipNextMessage() {
+        this.setSkipNextMessage(true);
     }
 
     public boolean isConsumedHttpStatusCode(int httpStatusCode) {
@@ -357,28 +386,40 @@ public class SplunkJmsConsumerSupport {
                         log.warn("Failed to retrieve value of JMSMessageID and JMSTimestamp for sendMessageToSplunk received log entry");
                     }
                 }
-                String eventBody = splunkEventBuilder.eventBody(message).build(splunkClient);
-
-                try {
-                    splunkClient.sendEvent(eventBody);
+                if (skipNextMessage != null && skipNextMessage.get()) {
+                    String jmsMessageId = "unknown";
+                    try {
+                        jmsMessageId = message.getJMSMessageID();
+                    } catch (JMSException getMessageIdEx) {
+                        log.warn("Failed to retrieve value of JMSMessageID: {}", message, getMessageIdEx);
+                    }
+                    log.info("Skipping message: JMSMessageID={} body={}", jmsMessageId, getMessageBody(message));
                     commitMessage(message);
-                } catch (EventDeliveryHttpException eventDeliveryHttpEx ) {
-                    if (isConsumedSplunkStatusCode(eventDeliveryHttpEx.getSplunkStatusCode()) || isConsumedHttpStatusCode(eventDeliveryHttpEx.getHttpStatusCode())) {
-                        log.warn("Ignoring exception encountered processing event - event body will follow at DEBUG level: code={} text={}",
-                                eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage());
-                        log.debug("Ignoring event: {}", eventBody);
+                    skipNextMessage.set(false);
+                } else {
+                    String eventBody = splunkEventBuilder.eventBody(message).build(splunkClient);
 
+                    try {
+                        splunkClient.sendEvent(eventBody);
                         commitMessage(message);
-                    } else {
-                        log.warn("Splunk failed to process message - rolling-back session: response_code={}, response_reason={}, status_code={}, status_message={}",
-                                eventDeliveryHttpEx.getHttpStatusCode(), eventDeliveryHttpEx.getHttpReasonPhrase(),
-                                eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage(),
-                                eventDeliveryHttpEx);
+                    } catch (EventDeliveryHttpException eventDeliveryHttpEx) {
+                        if (isConsumedSplunkStatusCode(eventDeliveryHttpEx.getSplunkStatusCode()) || isConsumedHttpStatusCode(eventDeliveryHttpEx.getHttpStatusCode())) {
+                            log.warn("Ignoring exception encountered processing event - event body will follow at DEBUG level: code={} text={}",
+                                    eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage());
+                            log.debug("Ignoring event: {}", eventBody);
+
+                            commitMessage(message);
+                        } else {
+                            log.warn("Splunk failed to process message - rolling-back session: response_code={}, response_reason={}, status_code={}, status_message={}",
+                                    eventDeliveryHttpEx.getHttpStatusCode(), eventDeliveryHttpEx.getHttpReasonPhrase(),
+                                    eventDeliveryHttpEx.getSplunkStatusCode(), eventDeliveryHttpEx.getSplunkStatusMessage(),
+                                    eventDeliveryHttpEx);
+                            rollbackMessage(message);
+                        }
+                    } catch (EventDeliveryException eventDeliveryEx) {
+                        log.warn("Failed to deliver message to Splunk - rolling-back session", eventDeliveryEx);
                         rollbackMessage(message);
                     }
-                } catch (EventDeliveryException eventDeliveryEx) {
-                    log.warn("Failed to deliver message to Splunk - rolling-back session", eventDeliveryEx);
-                    rollbackMessage(message);
                 }
             }
         }
@@ -487,5 +528,99 @@ public class SplunkJmsConsumerSupport {
             }
             log.error("Failed to rollback JMS Message: JMSMessageID=%s ", messageID, jmsRollbackEx);
         }
+    }
+
+    Object getMessageBody(Message jmsMessage) {
+        Object messageBody;
+        if (jmsMessage != null) {
+            if (jmsMessage instanceof TextMessage) {
+                TextMessage textMessage = (TextMessage) jmsMessage;
+                try {
+                    messageBody = textMessage.getText();
+                } catch (JMSException getTextEx) {
+                    log.warn("Exception encountered reading body from TextMessage ", getTextEx);
+                    messageBody = "<unknown TextMessage body>";
+                }
+            } else if (jmsMessage instanceof BytesMessage) {
+                BytesMessage bytesMessage = (BytesMessage) jmsMessage;
+                try {
+                    long bodyLength = 0;
+                    bodyLength = bytesMessage.getBodyLength();
+                    if (bodyLength > 0) {
+                        try {
+                            byte[] bodyBytes = new byte[(int) bodyLength];
+                            bytesMessage.readBytes(bodyBytes);
+                            messageBody = new String(bodyBytes);
+                        } catch (JMSException readBytesEx) {
+                            log.warn("Exception encountered reading byte[] from BytesMessage", readBytesEx);
+                            messageBody = "<unknown BytesMessage body>";
+                        }
+                    } else {
+                        messageBody = "<empty BytesMessage body>";
+                    }
+                } catch (JMSException getBodyLengthEx) {
+                    log.warn("Exception encountered getting byte[] length from BytesMessage", getBodyLengthEx);
+                    messageBody = "<unknown BytesMessage> body";
+                }
+            } else if (jmsMessage instanceof MapMessage) {
+                MapMessage mapMessage = (MapMessage) jmsMessage;
+                try {
+                    Enumeration<String> keys = mapMessage.getMapNames();
+                    if (keys != null && keys.hasMoreElements()) {
+                        Map<String, Object> mapMessageBody = new LinkedHashMap<>();
+                        while (keys.hasMoreElements()) {
+                            String key = keys.nextElement();
+                            try {
+                                String value = mapMessage.getString(key);
+                                if (value != null) {
+                                    mapMessageBody.put(key, value);
+                                }
+                            } catch (JMSException getStringPropertyEx) {
+                                log.warn("Exception encountered retrieving value for key '{}' from MapMessage", key, getStringPropertyEx);
+                            }
+                        }
+                        if (mapMessageBody != null && !mapMessageBody.isEmpty()) {
+                            messageBody = mapMessageBody;
+                        } else {
+                            messageBody = "<empty MapMessage body>";
+                        }
+                    } else {
+                        log.warn("Empty or null Enumeration returned by MapMessage.getMapNames()");
+                        messageBody = "<empty MapMessage body>";
+                    }
+                } catch (JMSException getMapNamesEx) {
+                    log.warn("Exception encountered retrieving keys from MapMessage", getMapNamesEx);
+                    messageBody = "<unknown MapMessage body>";
+                }
+            } else if (jmsMessage instanceof ObjectMessage) {
+                ObjectMessage objectMessage = (ObjectMessage) jmsMessage;
+                try {
+                    Serializable objectBody = objectMessage.getObject();
+                    if (objectBody != null) {
+                        String objectBodyString = objectBody.toString();
+                        if (!objectBodyString.isEmpty()) {
+                            messageBody = objectBodyString;
+                        } else {
+                            messageBody = "<empty ObjectMessage body>";
+                        }
+                    } else {
+                        messageBody = "<null ObjectMessage body>";
+                    }
+                } catch (JMSException getObjectEx) {
+                    log.warn("Exception encountered reading Object from ObjectMessage", getObjectEx);
+                    messageBody = "<unknown ObjectMessage body>";
+                }
+            } else if (jmsMessage instanceof StreamMessage) {
+                log.warn("Unsupported JMS Message type: {}", jmsMessage.getClass().getName());
+                messageBody = "<unsupported StreamMessage body>";
+            } else {
+                log.warn("Unknown JMS Message type: {}", jmsMessage.getClass().getName());
+                messageBody = String.format("<unknown %s body>", jmsMessage.getClass().getName());
+            }
+        } else {
+            messageBody = "<null Message>";
+        }
+
+        return messageBody;
     }
 }

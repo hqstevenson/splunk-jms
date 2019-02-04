@@ -738,7 +738,7 @@ public class JmsMessageEventBuilder extends JacksonEventBuilderSupport<Message> 
                     default:
                         answer = getEventBody().getStringProperty(headerOrPropertyName);
                 }
-        }
+            }
         } catch (JMSException jmsEx) {
             log.warn("Exception encountered reading {}", headerOrPropertyName, jmsEx);
         }
